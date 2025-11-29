@@ -1,6 +1,7 @@
 # EC2 Deployment Guide - Buddylynk Website
 
 **Status:** ✅ Auto-deployment enabled via GitHub Actions!
+**Last Updated:** Nov 29, 2025
 
 ## Prerequisites
 - EC2 instance running (Ubuntu/Amazon Linux recommended)
