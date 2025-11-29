@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /chat
+Disallow: /settings
+Disallow: /edit-profile
+
+Sitemap: https://buddylynk.com/sitemap.xml
