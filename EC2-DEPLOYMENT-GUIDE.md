@@ -1,5 +1,7 @@
 # EC2 Deployment Guide - Buddylynk Website
 
+**Status:** ✅ Auto-deployment enabled via GitHub Actions!
+
 ## Prerequisites
 - EC2 instance running (Ubuntu/Amazon Linux recommended)
 - Git installed on EC2 (you mentioned it's already installed ✓)
@@ -27,7 +29,7 @@ nvm use 18
 
 # OR for Ubuntu
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
+sudo apt-get instll a-y nodejs
 ```
 
 ---

@@ -40,14 +40,17 @@ const AppRoutes = () => {
   
   return (
     <>
-      {user && <Navbar />}
+      <Navbar />
       {user && <IncomingCallOverlay />}
       <Routes>
+        {/* Public Routes - Home is accessible without login */}
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+        <Route path="/post/:postId" element={<PostDetail />} />
+        
+        {/* Private Routes - Require login */}
         <Route path="/complete-profile" element={<PrivateRoute><CompleteProfile /></PrivateRoute>} />
         <Route path="/suggested-friends" element={<PrivateRoute><SuggestedFriends /></PrivateRoute>} />
-        <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
-        <Route path="/post/:postId" element={<PrivateRoute><PostDetail /></PrivateRoute>} />
         <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
         <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
         <Route path="/groups" element={<PrivateRoute><Create /></PrivateRoute>} />

@@ -25,6 +25,14 @@ const Navbar = () => {
         navigate("/login");
     };
 
+    // Handle navigation for non-logged-in users
+    const handleNavClick = (e, path) => {
+        if (!user && path !== "/") {
+            e.preventDefault();
+            navigate("/login");
+        }
+    };
+
     const navItems = [
         { icon: Home, label: "Home", path: "/" },
         { icon: Search, label: "Search", path: "/search" },
@@ -91,6 +99,7 @@ const Navbar = () => {
                         >
                             <Link
                                 to={item.path}
+                                onClick={(e) => handleNavClick(e, item.path)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                                     isActive(item.path)
                                         ? "bg-gradient-to-r from-primary/20 to-secondary/20 dark:text-white text-gray-900"
@@ -137,17 +146,29 @@ const Navbar = () => {
                     ))}
                 </div>
 
-                {/* Logout Button */}
+                {/* Logout/Login Button */}
                 <div className="p-4 border-t dark:border-white/10 border-gray-200">
-                    <motion.button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 text-red-500 hover:text-red-400 dark:hover:bg-red-500/10 hover:bg-red-50 rounded-xl w-full transition-all group"
-                        whileHover={{ x: 5 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                        <span className="font-medium">Logout</span>
-                    </motion.button>
+                    {user ? (
+                        <motion.button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 px-4 py-3 text-red-500 hover:text-red-400 dark:hover:bg-red-500/10 hover:bg-red-50 rounded-xl w-full transition-all group"
+                            whileHover={{ x: 5 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                            <span className="font-medium">Logout</span>
+                        </motion.button>
+                    ) : (
+                        <motion.button
+                            onClick={() => navigate("/login")}
+                            className="flex items-center gap-3 px-4 py-3 text-primary hover:text-primary/80 dark:hover:bg-primary/10 hover:bg-primary/10 rounded-xl w-full transition-all group"
+                            whileHover={{ x: 5 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform rotate-180" />
+                            <span className="font-medium">Login / Sign Up</span>
+                        </motion.button>
+                    )}
                 </div>
             </motion.div>
 
@@ -165,6 +186,7 @@ const Navbar = () => {
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                onClick={(e) => handleNavClick(e, item.path)}
                                 className={`flex flex-col items-center p-2 rounded-xl transition-all relative min-w-[56px] ${
                                     isActive(item.path)
                                         ? "text-primary"
@@ -260,21 +282,37 @@ const Navbar = () => {
                                 ))}
                             </div>
                             
-                            {/* Logout Button - Centered */}
+                            {/* Logout/Login Button - Centered */}
                             <div className="px-4 pb-8 pt-2">
-                                <motion.button
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 }}
-                                    onClick={() => {
-                                        setShowMobileMenu(false);
-                                        handleLogout();
-                                    }}
-                                    className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-red-500/10 text-red-500 rounded-xl font-medium hover:bg-red-500/20 transition-all"
-                                >
-                                    <LogOut className="w-5 h-5" />
-                                    <span>Logout</span>
-                                </motion.button>
+                                {user ? (
+                                    <motion.button
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                        onClick={() => {
+                                            setShowMobileMenu(false);
+                                            handleLogout();
+                                        }}
+                                        className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-red-500/10 text-red-500 rounded-xl font-medium hover:bg-red-500/20 transition-all"
+                                    >
+                                        <LogOut className="w-5 h-5" />
+                                        <span>Logout</span>
+                                    </motion.button>
+                                ) : (
+                                    <motion.button
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                        onClick={() => {
+                                            setShowMobileMenu(false);
+                                            navigate("/login");
+                                        }}
+                                        className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-primary/10 text-primary rounded-xl font-medium hover:bg-primary/20 transition-all"
+                                    >
+                                        <LogOut className="w-5 h-5 rotate-180" />
+                                        <span>Login / Sign Up</span>
+                                    </motion.button>
+                                )}
                             </div>
                         </motion.div>
                     </>

@@ -15,6 +15,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import InstagramMediaFrame from "../components/InstagramMediaFrame";
 import InstagramImageViewer from "../components/InstagramImageViewer";
 import { uploadViaServer } from "../utils/serverUpload";
+import LoginPrompt from "../components/LoginPrompt";
 
 const Home = () => {
     const navigate = useNavigate();
@@ -50,6 +51,8 @@ const Home = () => {
     const [showCommentMenu, setShowCommentMenu] = useState({});
     const [editingComment, setEditingComment] = useState(null);
     const [editCommentText, setEditCommentText] = useState("");
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [loginPromptMessage, setLoginPromptMessage] = useState("");
     const carouselRefs = useRef({});
     const { user } = useAuth();
     const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
@@ -57,6 +60,16 @@ const Home = () => {
     const toast = useToast();
 
     const [userAvatars, setUserAvatars] = useState({});
+    
+    // Helper function to require login for actions
+    const requireLogin = (action, message) => {
+        if (!user) {
+            setLoginPromptMessage(message || "Please login to " + action);
+            setShowLoginPrompt(true);
+            return true;
+        }
+        return false;
+    };
 
     useEffect(() => {
         fetchPosts();
@@ -191,6 +204,9 @@ const Home = () => {
     const handlePostSubmit = async (e) => {
         e.preventDefault();
 
+        // Require login to create post
+        if (requireLogin("post", "Please login to create posts")) return;
+
         // Prevent double submission
         if (uploading) return;
 
@@ -296,6 +312,9 @@ const Home = () => {
     };
 
     const handleLike = async (postId) => {
+        // Require login to like
+        if (requireLogin("like", "Please login to like posts")) return;
+        
         // Optimistic update - update UI immediately
         setPosts(prevPosts => prevPosts.map(post => {
             if (post.postId === postId) {
@@ -336,6 +355,9 @@ const Home = () => {
     };
 
     const handleComment = async (postId) => {
+        // Require login to comment
+        if (requireLogin("comment", "Please login to comment on posts")) return;
+        
         const content = commentText[postId];
         if (!content?.trim()) return;
 
@@ -480,6 +502,9 @@ const Home = () => {
     };
 
     const handleShare = async (postId) => {
+        // Require login to share
+        if (requireLogin("share", "Please login to share posts")) return;
+        
         const post = posts.find(p => p.postId === postId);
         const shareUrl = `${window.location.origin}/post/${postId}`;
         
@@ -563,6 +588,9 @@ const Home = () => {
     };
 
     const handleSave = async (postId) => {
+        // Require login to save
+        if (requireLogin("save", "Please login to save posts")) return;
+        
         try {
             const token = localStorage.getItem("token");
             await axios.post(`/api/posts/${postId}/save`, {}, {
@@ -931,7 +959,8 @@ const Home = () => {
                     </div>
                 </div>
 
-                {/* Create Post Widget */}
+                {/* Create Post Widget - Only show for logged in users */}
+                {user ? (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1090,6 +1119,27 @@ const Home = () => {
                         </div>
                     </form>
                 </motion.div>
+                ) : (
+                    /* Login Prompt for non-logged-in users */
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-panel p-6 text-center"
+                    >
+                        <h3 className="text-lg font-semibold dark:text-white text-gray-900 mb-2">
+                            Join the conversation!
+                        </h3>
+                        <p className="dark:text-gray-400 text-gray-600 mb-4">
+                            Login or sign up to create posts, like, comment, and connect with others.
+                        </p>
+                        <button
+                            onClick={() => navigate("/login")}
+                            className="btn-primary py-2 px-6"
+                        >
+                            Login / Sign Up
+                        </button>
+                    </motion.div>
+                )}
 
                 {/* Feed */}
                 <div className="space-y-6">
@@ -1783,6 +1833,13 @@ const Home = () => {
                 confirmText="Block"
                 cancelText="Cancel"
                 type="warning"
+            />
+
+            {/* Login Prompt Modal */}
+            <LoginPrompt
+                isOpen={showLoginPrompt}
+                onClose={() => setShowLoginPrompt(false)}
+                message={loginPromptMessage}
             />
         </div>
     );
