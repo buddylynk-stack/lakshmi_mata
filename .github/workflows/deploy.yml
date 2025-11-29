@@ -11,36 +11,44 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 300s
+          command_timeout: 30m
           script: |
-            echo "🚀 Starting deployment..."
+            set -e
+            echo "🚀 Starting deployment at $(date)"
+            
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             
             # Navigate to project directory
             cd ~/lakshmi_mata
             
             # Stash any local changes and pull latest code
             echo "📥 Pulling latest code from GitHub..."
-            git reset --hard HEAD
+            git fetch origin main
+            git reset --hard origin/main
             git clean -fd
-            git pull origin main
             
             # Update backend
             echo "🔧 Updating backend..."
             cd Buddylynk_P2.6/Buddylynk/server
-            npm install --production
-            pm2 restart buddylynk-server
+            npm install --production --legacy-peer-deps
+            pm2 restart buddylynk-server || pm2 start index.js --name buddylynk-server
             
             # Update frontend
             echo "🎨 Building frontend..."
             cd ../client
-            npm install
+            npm install --legacy-peer-deps
             npm run build
             
             # Give permissions
@@ -50,7 +58,8 @@ jobs:
             echo "🔄 Restarting Nginx..."
             sudo systemctl restart nginx
             
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Deployment completed successfully at $(date)!"
             
             # Show status
             pm2 status
+            echo "🌐 Site is live at https://buddylynk.com"
