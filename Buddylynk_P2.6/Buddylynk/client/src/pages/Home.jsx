@@ -1416,13 +1416,13 @@ const Home = () => {
                                         {post.poll.options.map((option) => {
                                             const totalVotes = post.poll.options.reduce((sum, opt) => sum + opt.votes, 0);
                                             const percentage = totalVotes > 0 ? ((option.votes / totalVotes) * 100).toFixed(1) : 0;
-                                            const hasVoted = option.voters.includes(user.userId);
+                                            const hasVoted = user ? option.voters.includes(user.userId) : false;
 
                                             return (
                                                 <button
                                                     key={option.id}
                                                     onClick={() => handleVote(post.postId, option.id)}
-                                                    disabled={post.poll.options.some(opt => opt.voters.includes(user.userId))}
+                                                    disabled={user ? post.poll.options.some(opt => opt.voters.includes(user.userId)) : true}
                                                     className="w-full p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all relative overflow-hidden disabled:cursor-not-allowed"
                                                 >
                                                     <div
@@ -1445,10 +1445,10 @@ const Home = () => {
                                 <div className="flex items-center gap-6 dark:text-gray-400 text-gray-600 pt-4 border-t dark:border-white/10 border-gray-200">
                                     <button
                                         onClick={() => handleLike(post.postId)}
-                                        className={`flex items-center gap-2 hover:text-secondary transition-colors ${post.likedBy?.includes(user.userId) ? 'text-secondary' : ''
+                                        className={`flex items-center gap-2 hover:text-secondary transition-colors ${user && post.likedBy?.includes(user.userId) ? 'text-secondary' : ''
                                             }`}
                                     >
-                                        <Heart className={`w-5 h-5 ${post.likedBy?.includes(user.userId) ? 'fill-current' : ''}`} />
+                                        <Heart className={`w-5 h-5 ${user && post.likedBy?.includes(user.userId) ? 'fill-current' : ''}`} />
                                         <span>{post.likes || 0}</span>
                                     </button>
                                     <button
@@ -1467,10 +1467,10 @@ const Home = () => {
                                     </button>
                                     <button
                                         onClick={() => handleSave(post.postId)}
-                                        className={`flex items-center gap-2 hover:text-primary transition-colors ${post.savedBy?.includes(user.userId) ? 'text-primary' : ''
+                                        className={`flex items-center gap-2 hover:text-primary transition-colors ${user && post.savedBy?.includes(user.userId) ? 'text-primary' : ''
                                             }`}
                                     >
-                                        <Bookmark className={`w-5 h-5 ${post.savedBy?.includes(user.userId) ? 'fill-current' : ''}`} />
+                                        <Bookmark className={`w-5 h-5 ${user && post.savedBy?.includes(user.userId) ? 'fill-current' : ''}`} />
                                     </button>
                                     <div className="flex items-center gap-1 text-xs ml-auto">
                                         <Eye className="w-4 h-4" />
