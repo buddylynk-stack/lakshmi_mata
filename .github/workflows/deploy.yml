@@ -1,0 +1,51 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to project directory
+            cd ~/lakshmi_mata
+            
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git pull origin main
+            
+            # Update backend
+            echo "🔧 Updating backend..."
+            cd Buddylynk_P2.6/Buddylynk/server
+            npm install
+            pm2 restart buddylynk-server
+            
+            # Update frontend
+            echo "🎨 Building frontend..."
+            cd ../client
+            npm install
+            npm run build
+            
+            # Restart Nginx
+            echo "🔄 Restarting Nginx..."
+            sudo systemctl restart nginx
+            
+            echo "✅ Deployment completed successfully!"
+            
+            # Show status
+            pm2 status
