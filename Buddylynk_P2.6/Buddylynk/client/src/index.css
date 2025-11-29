@@ -1,0 +1,339 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  .dark body {
+    @apply bg-dark text-white;
+    background: #0f172a;
+  }
+
+  body:not(.dark body) {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  /* Glass Panel - Optimized (reduced blur) */
+  .glass-panel {
+    @apply rounded-2xl shadow-lg border;
+    @apply dark:bg-slate-800/90 dark:border-white/10;
+    @apply bg-white/95 border-gray-200;
+    transition: background-color 0.15s ease;
+  }
+
+  /* Primary Button - Simplified */
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary to-secondary text-white font-semibold;
+    @apply py-2.5 px-6 rounded-xl;
+    @apply shadow-md hover:shadow-lg;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/50;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.02);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+    transform: none;
+  }
+
+  /* Secondary Button */
+  .btn-secondary {
+    @apply py-2.5 px-6 rounded-xl font-semibold;
+    @apply dark:bg-white/10 dark:text-white dark:hover:bg-white/20;
+    @apply bg-gray-100 text-gray-900 hover:bg-gray-200;
+    transition: background-color 0.15s ease;
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    @apply py-2.5 px-6 rounded-xl font-semibold;
+    @apply dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10;
+    @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Danger Button */
+  .btn-danger {
+    @apply py-2.5 px-6 rounded-xl font-semibold;
+    @apply bg-red-500 text-white hover:bg-red-600;
+    @apply shadow-md;
+    transition: background-color 0.15s ease;
+  }
+
+  /* Icon Button */
+  .btn-icon {
+    @apply p-2.5 rounded-xl;
+    @apply dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10;
+    @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Input Field - Simplified */
+  .input-field {
+    @apply w-full rounded-xl px-4 py-3;
+    @apply border focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
+    @apply dark:bg-slate-700 dark:border-white/10 dark:text-white dark:placeholder-gray-400;
+    @apply bg-white border-gray-200 text-gray-900 placeholder-gray-400;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply glass-panel p-6;
+  }
+
+  .card-hover {
+    @apply card cursor-pointer;
+    transition: transform 0.15s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Avatar Styles */
+  .avatar {
+    @apply rounded-full object-cover;
+  }
+
+  .avatar-sm { @apply w-8 h-8; }
+  .avatar-md { @apply w-10 h-10; }
+  .avatar-lg { @apply w-12 h-12; }
+  .avatar-xl { @apply w-16 h-16; }
+  .avatar-2xl { @apply w-24 h-24; }
+
+  /* Badge Styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary { @apply bg-primary/20 text-primary; }
+  .badge-secondary { @apply bg-secondary/20 text-secondary; }
+  .badge-success { @apply bg-green-500/20 text-green-500; }
+  .badge-danger { @apply bg-red-500/20 text-red-500; }
+
+  /* Text utilities */
+  .text-theme { @apply dark:text-white text-gray-900; }
+  .text-theme-secondary { @apply dark:text-gray-400 text-gray-600; }
+  .text-theme-muted { @apply dark:text-gray-500 text-gray-500; }
+
+  /* Gradient Text */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  /* Scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Skeleton Loading - Simplified */
+  .skeleton {
+    @apply animate-pulse rounded;
+    @apply dark:bg-gray-700 bg-gray-200;
+  }
+
+  /* Dropdown Menu */
+  .dropdown-menu {
+    @apply absolute z-50 min-w-[180px] py-2 rounded-xl shadow-xl border;
+    @apply dark:bg-slate-800 dark:border-white/10;
+    @apply bg-white border-gray-200;
+  }
+
+  .dropdown-item {
+    @apply flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer;
+    @apply dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white;
+    @apply text-gray-700 hover:bg-gray-100 hover:text-gray-900;
+    transition: background-color 0.1s ease;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 bg-black/60;
+    @apply flex items-center justify-center p-4;
+  }
+
+  .modal-content {
+    @apply glass-panel max-w-md w-full max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Online Indicator */
+  .online-indicator {
+    @apply absolute bottom-0 right-0 w-3 h-3 rounded-full border-2;
+    @apply dark:border-slate-800 border-white;
+  }
+  .online-indicator.online { @apply bg-green-500; }
+  .online-indicator.offline { @apply bg-gray-400; }
+}
+
+/* Media styles */
+.instagram-media-frame { @apply w-full; }
+
+.instagram-media-frame img,
+.instagram-media-frame video {
+  object-fit: contain !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 auto;
+  display: block;
+}
+
+.aspect-square {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.aspect-square img {
+  object-fit: contain !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.center-media {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.center-media img,
+.center-media video {
+  object-fit: contain !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Glass panel mobile adjustments */
+  .glass-panel {
+    @apply mx-2 rounded-xl;
+  }
+  
+  /* Ensure touch targets are large enough */
+  button, a, input[type="button"], input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Full width inputs on mobile */
+  .input-field {
+    @apply text-base; /* Prevents zoom on iOS */
+  }
+  
+  /* Mobile page padding */
+  .mobile-page {
+    @apply px-3 pb-20;
+  }
+  
+  /* Mobile cards */
+  .mobile-card {
+    @apply mx-0 rounded-lg;
+  }
+  
+  /* Mobile grid adjustments */
+  .mobile-grid-2 {
+    @apply grid-cols-2 gap-2;
+  }
+  
+  .mobile-grid-1 {
+    @apply grid-cols-1;
+  }
+  
+  /* Hide on mobile */
+  .hide-mobile {
+    @apply hidden;
+  }
+  
+  /* Show only on mobile */
+  .show-mobile {
+    @apply block;
+  }
+  
+  /* Mobile text sizes */
+  .mobile-text-sm {
+    @apply text-sm;
+  }
+  
+  .mobile-text-base {
+    @apply text-base;
+  }
+  
+  /* Mobile spacing */
+  .mobile-p-2 {
+    @apply p-2;
+  }
+  
+  .mobile-p-3 {
+    @apply p-3;
+  }
+  
+  .mobile-gap-2 {
+    @apply gap-2;
+  }
+  
+  /* Mobile modal */
+  .modal-content {
+    @apply mx-2 max-h-[85vh];
+  }
+  
+  /* Mobile bottom nav spacing */
+  .pb-safe {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Small mobile (< 375px) */
+@media (max-width: 375px) {
+  .glass-panel {
+    @apply mx-1;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-ghost {
+    @apply px-4 py-2 text-sm;
+  }
+}
+
+/* Desktop only */
+@media (min-width: 769px) {
+  .hide-desktop {
+    @apply hidden;
+  }
+  
+  .show-desktop {
+    @apply block;
+  }
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

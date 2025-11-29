@@ -1,0 +1,65 @@
+═══════════════════════════════════════════════════════════
+  S3 UPLOAD FIX - QUICK CHECKLIST
+═══════════════════════════════════════════════════════════
+
+✅ CODE FIXED (Already done by Kiro)
+   - Removed ACL parameters
+   - Disabled checksums
+   - Updated upload logic
+
+🚨 IMPORTANT: The 400 error is because S3 bucket is NOT configured!
+   You MUST do the steps below for uploads to work.
+
+⏳ AWS S3 CONFIGURATION (You need to do this)
+
+□ Step 0: Test Current Config
+   → Run: node test-s3.bat
+   → This shows what's missing
+
+□ Step 1: Configure CORS
+   → AWS Console → S3 → buddylynk-media-bucket-2024
+   → Permissions → CORS → Edit
+   → Paste CORS config from FIX-S3-UPLOAD-ERROR.md
+   → Save
+
+□ Step 2: Set Bucket Policy  
+   → Permissions → Bucket Policy → Edit
+   → Paste policy from FIX-S3-UPLOAD-ERROR.md
+   → Save
+
+□ Step 3: Disable Block Public Access
+   → Permissions → Block Public Access → Edit
+   → Uncheck "Block all public access"
+   → Confirm and Save
+
+□ Step 4: Restart Backend
+   → cd Buddylynk/server
+   → npm start
+
+□ Step 5: Test Upload
+   → Open app
+   → Create post with image
+   → Should work! ✅
+
+═══════════════════════════════════════════════════════════
+  DEPLOY TO S3 (Optional - for static website hosting)
+═══════════════════════════════════════════════════════════
+
+□ Create website bucket: buddylynk.com
+□ Enable static website hosting
+□ Set bucket policy for public read
+□ Build: npm run build
+□ Deploy: aws s3 sync dist/ s3://buddylynk.com
+□ Or use: deploy-to-s3.bat
+
+See S3-STATIC-WEBSITE-GUIDE.md for full instructions
+
+═══════════════════════════════════════════════════════════
+  COST SAVINGS
+═══════════════════════════════════════════════════════════
+
+EC2 Hosting:     $12-50/month
+S3 + CloudFront: $3-15/month
+SAVINGS:         70-90% 💰
+
+═══════════════════════════════════════════════════════════
