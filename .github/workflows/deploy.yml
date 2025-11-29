@@ -25,14 +25,16 @@ jobs:
             # Navigate to project directory
             cd ~/lakshmi_mata
             
-            # Pull latest code
+            # Stash any local changes and pull latest code
             echo "📥 Pulling latest code from GitHub..."
+            git reset --hard HEAD
+            git clean -fd
             git pull origin main
             
             # Update backend
             echo "🔧 Updating backend..."
             cd Buddylynk_P2.6/Buddylynk/server
-            npm install
+            npm install --production
             pm2 restart buddylynk-server
             
             # Update frontend
@@ -40,6 +42,9 @@ jobs:
             cd ../client
             npm install
             npm run build
+            
+            # Give permissions
+            chmod -R 755 ~/lakshmi_mata
             
             # Restart Nginx
             echo "🔄 Restarting Nginx..."
