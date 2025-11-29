@@ -82,11 +82,17 @@ app.use(cors({
             return callback(null, true);
         }
         
+        // Allow all buddylynk.com origins (including Cloudflare)
+        if (origin.includes('buddylynk.com')) {
+            return callback(null, true);
+        }
+        
         // Check against allowed origins list
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            // Allow all origins in production for now
+            callback(null, true);
         }
     },
     credentials: true
