@@ -358,11 +358,7 @@ const viewPost = async (req, res) => {
     try {
         const { id } = req.params;
         const { duration } = req.body;
-        const userId = req.user?.userId;
-
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required to track views" });
-        }
+        const userId = req.user?.userId || null; // Allow anonymous views
 
         // Collect metadata for fraud detection
         const metadata = {
@@ -373,6 +369,7 @@ const viewPost = async (req, res) => {
         };
 
         // Record view in separate PostViews table (secure, tamper-proof)
+        // For anonymous users, use IP hash as identifier
         const viewResult = await PostView.recordView(id, userId, metadata);
 
         // Only increment post view count if it's a new unique view

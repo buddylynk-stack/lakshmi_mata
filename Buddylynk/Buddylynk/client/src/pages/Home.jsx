@@ -11,6 +11,7 @@ import { useRealTimePosts } from "../hooks/useRealTimePosts";
 import { RetryImage, SafeAvatar } from "../components/SafeImage";
 import VideoPlayer from "../components/VideoPlayer";
 import LoadingIndicator from "../components/LoadingIndicator";
+import HamsterLoader from "../components/HamsterLoader";
 import ConfirmModal from "../components/ConfirmModal";
 import InstagramMediaFrame from "../components/InstagramMediaFrame";
 import InstagramImageViewer from "../components/InstagramImageViewer";
@@ -605,9 +606,8 @@ const Home = () => {
     const handleView = async (postId) => {
         try {
             const token = localStorage.getItem("token");
-            await axios.post(`/api/posts/${postId}/view`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            await axios.post(`/api/posts/${postId}/view`, {}, { headers });
         } catch (error) {
             console.error("Error incrementing view:", error);
         }
@@ -1144,25 +1144,10 @@ const Home = () => {
                 {/* Feed */}
                 <div className="space-y-6">
                     {loading ? (
-                        // Loading Skeleton
-                        <>
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="glass-panel p-4 animate-pulse">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-full" />
-                                        <div className="flex-1">
-                                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-32 mb-2" />
-                                            <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-24" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2 mb-4">
-                                        <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-full" />
-                                        <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4" />
-                                    </div>
-                                    <div className="h-64 bg-gray-300 dark:bg-gray-700 rounded-xl" />
-                                </div>
-                            ))}
-                        </>
+                        // Hamster Loading Animation
+                        <div className="flex flex-col items-center justify-center py-16">
+                            <HamsterLoader size="large" text="Loading posts..." />
+                        </div>
                     ) : posts.length === 0 ? (
                         <div className="glass-panel p-8 text-center">
                             <p className="dark:text-gray-400 text-gray-600">No posts yet. Be the first to post!</p>

@@ -1,6 +1,6 @@
 const express = require("express");
 const { createPost, getPosts, getPostById, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics } = require("../controllers/postController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, optionalProtect } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
@@ -17,7 +17,7 @@ router.delete("/:id/comment/:commentId", protect, deleteComment);
 router.post("/:id/comment/:commentId/pin", protect, pinComment);
 router.post("/:id/share", protect, sharePost);
 router.post("/:id/save", protect, savePost);
-router.post("/:id/view", protect, viewPost); // Protected to track unique users
+router.post("/:id/view", optionalProtect, viewPost); // Optional auth - tracks both authenticated and anonymous users
 router.get("/:id/analytics", protect, getPostAnalytics); // Get view analytics (owner only)
 router.put("/:id", protect, upload.array("media", 10), editPost); // Allow up to 10 files
 router.delete("/:id", protect, deletePost);

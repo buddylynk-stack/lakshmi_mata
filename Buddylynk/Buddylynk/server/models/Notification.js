@@ -5,10 +5,15 @@ const { v4: uuidv4 } = require("uuid");
 const TABLE_NAME = "Buddylynk_Notifications";
 
 const createNotification = async (notification) => {
+    // Calculate TTL - 7 days from now (in Unix epoch seconds)
+    const ttlDays = 7;
+    const expiresAt = Math.floor(Date.now() / 1000) + (ttlDays * 24 * 60 * 60);
+    
     const newNotification = {
         notificationId: uuidv4(),
         createdAt: new Date().toISOString(),
         read: false,
+        expiresAt, // TTL attribute - DynamoDB will auto-delete after 7 days
         ...notification,
     };
     await docClient.send(new PutCommand({

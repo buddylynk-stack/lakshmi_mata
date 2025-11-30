@@ -9,6 +9,7 @@ import { cleanupOldStorage } from "./utils/cleanupStorage";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
+import NotFound from "./pages/NotFound";
 import Chat from "./pages/Chat";
 import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
@@ -23,10 +24,15 @@ import SuggestedFriends from "./pages/SuggestedFriends";
 import PostDetail from "./pages/PostDetail";
 import Navbar from "./components/Navbar";
 import IncomingCallOverlay from "./components/IncomingCallOverlay";
+import HamsterLoader from "./components/HamsterLoader";
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      <HamsterLoader size="large" text="Loading..." />
+    </div>
+  );
   return user ? children : <Navigate to="/login" />;
 };
 
@@ -60,6 +66,9 @@ const AppRoutes = () => {
         <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/saved" element={<PrivateRoute><Saved /></PrivateRoute>} />
+        
+        {/* 404 - Catch all unmatched routes */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );
