@@ -39,17 +39,45 @@ jobs:
             git reset --hard origin/main
             git clean -fd
             
+            # Remove old folder if it exists
+            if [ -d "Buddylynk_P2.6" ]; then
+                echo "🗑️  Removing old Buddylynk_P2.6 folder..."
+                rm -rf Buddylynk_P2.6
+            fi
+            
+            # Update Nginx configuration to point to new path
+            echo "📝 Updating Nginx configuration..."
+            if [ -f "/etc/nginx/sites-available/buddylynk" ]; then
+                sudo cp /etc/nginx/sites-available/buddylynk /etc/nginx/sites-available/buddylynk.backup
+                sudo sed -i 's|/home/ubuntu/lakshmi_mata/Buddylynk_P2.6/Buddylynk/client/dist|/home/ubuntu/lakshmi_mata/Buddylynk/Buddylynk/client/dist|g' /etc/nginx/sites-available/buddylynk
+                echo "✅ Nginx config updated"
+            fi
+            
+            # Test Nginx configuration
+            echo "🧪 Testing Nginx configuration..."
+            sudo nginx -t
+            
+            # Stop all PM2 processes
+            echo "🛑 Stopping PM2 processes..."
+            pm2 stop all || true
+            pm2 delete all || true
+            
             # Update backend
-            echo "🔧 Updating backend..."
-            cd Buddylynk/Buddylynk/server
+            echo "🔧 Installing backend dependencies..."
+            cd ~/lakshmi_mata/Buddylynk/Buddylynk/server
             npm install --production --legacy-peer-deps
-            pm2 restart buddylynk-server || pm2 start index.js --name buddylynk-server
             
             # Update frontend
             echo "🎨 Building frontend..."
-            cd ../client
+            cd ~/lakshmi_mata/Buddylynk/Buddylynk/client
             npm install --legacy-peer-deps
             npm run build
+            
+            # Start backend with PM2
+            echo "🚀 Starting backend server..."
+            cd ~/lakshmi_mata/Buddylynk/Buddylynk/server
+            pm2 start index.js --name buddylynk-server
+            pm2 save
             
             # Give permissions
             chmod -R 755 ~/lakshmi_mata
