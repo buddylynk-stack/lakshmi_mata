@@ -114,34 +114,31 @@ jobs:
             echo "📝 Setting up environment variables..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
             
-            # Check if master .env exists in home directory
+            # Always use master .env file if it exists
             if [ -f ~/.env.buddylynk ]; then
-                echo "✅ Found master .env file, copying to project..."
+                echo "✅ Found master .env file at ~/.env.buddylynk"
                 cp ~/.env.buddylynk .env
-                echo "✅ .env file copied from ~/.env.buddylynk"
+                echo "✅ .env file copied successfully"
             else
-                echo "⚠️  Master .env not found at ~/.env.buddylynk"
-                echo "Creating .env from GitHub secrets..."
-                cat > .env << ENDOFFILE
-            AWS_REGION=${AWS_REGION}
-            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-            S3_BUCKET_NAME=${S3_BUCKET_NAME}
-            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-            PORT=5000
-            JWT_SECRET=${JWT_SECRET}
-            REDIS_HOST=localhost
-            REDIS_PORT=6379
-            ENDOFFILE
+                echo "⚠️  Master .env not found, creating from GitHub secrets..."
+                # Use echo method to avoid whitespace issues
+                echo "AWS_REGION=${AWS_REGION}" > .env
+                echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> .env
+                echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
+                echo "S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> .env
+                echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env
+                echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env
+                echo "PORT=5000" >> .env
+                echo "JWT_SECRET=${JWT_SECRET}" >> .env
+                echo "REDIS_HOST=localhost" >> .env
+                echo "REDIS_PORT=6379" >> .env
                 
-                # Remove leading whitespace
-                sed -i 's/^[[:space:]]*//' .env
-                echo "✅ .env file created from secrets"
+                # Save as master copy for future deployments
+                cp .env ~/.env.buddylynk
+                echo "✅ .env file created and saved to ~/.env.buddylynk"
             fi
             
-            echo "🔍 Verifying .env contents:"
-            cat .env
+            echo "🔍 .env file is ready"
             
             # Start backend with PM2
             echo "🚀 Starting backend server..."
