@@ -48,18 +48,36 @@ jobs:
             git reset --hard origin/main
             git clean -fd
             
-            # Remove old folder if it exists
-            if [ -d "Buddylynk_P2.6" ]; then
-                echo "🗑️  Removing old Buddylynk_P2.6 folder..."
-                rm -rf Buddylynk_P2.6
+            # Auto-detect the correct folder path
+            echo "🔍 Auto-detecting project folder..."
+            if [ -d "Buddylynk/Buddylynk" ]; then
+                PROJECT_PATH="Buddylynk/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
+            elif [ -d "Buddylynk_P2.6/Buddylynk" ]; then
+                PROJECT_PATH="Buddylynk_P2.6/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
+            else
+                echo "❌ Could not find project folder!"
+                exit 1
             fi
             
-            # Update Nginx configuration to point to new path
+            # Clean up old folders (keep only the current one)
+            echo "🧹 Cleaning up old folders..."
+            for dir in Buddylynk*; do
+                if [ -d "$dir" ] && [ "$dir" != "${PROJECT_PATH%%/*}" ]; then
+                    echo "🗑️  Removing old folder: $dir"
+                    rm -rf "$dir"
+                fi
+            done
+            
+            # Update Nginx configuration to point to detected path
             echo "📝 Updating Nginx configuration..."
+            NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
             if [ -f "/etc/nginx/sites-available/buddylynk" ]; then
                 sudo cp /etc/nginx/sites-available/buddylynk /etc/nginx/sites-available/buddylynk.backup
-                sudo sed -i 's|/home/ubuntu/lakshmi_mata/Buddylynk_P2.6/Buddylynk/client/dist|/home/ubuntu/lakshmi_mata/Buddylynk/Buddylynk/client/dist|g' /etc/nginx/sites-available/buddylynk
-                echo "✅ Nginx config updated"
+                # Replace any old path with the new detected path
+                sudo sed -i "s|root /home/ubuntu/lakshmi_mata/[^;]*;|root $NGINX_PATH;|g" /etc/nginx/sites-available/buddylynk
+                echo "✅ Nginx config updated to: $NGINX_PATH"
             fi
             
             # Test Nginx configuration
@@ -73,12 +91,12 @@ jobs:
             
             # Update backend
             echo "🔧 Installing backend dependencies..."
-            cd ~/lakshmi_mata/Buddylynk/Buddylynk/server
+            cd ~/lakshmi_mata/$PROJECT_PATH/server
             npm install --production --legacy-peer-deps
             
             # Update frontend
             echo "🎨 Building frontend..."
-            cd ~/lakshmi_mata/Buddylynk/Buddylynk/client
+            cd ~/lakshmi_mata/$PROJECT_PATH/client
             npm install --legacy-peer-deps
             npm run build
             
@@ -93,7 +111,7 @@ jobs:
             
             # Ensure .env file exists with environment variables
             echo "📝 Setting up environment variables..."
-            cd ~/lakshmi_mata/Buddylynk/Buddylynk/server
+            cd ~/lakshmi_mata/$PROJECT_PATH/server
             if [ ! -f .env ]; then
                 echo "Creating .env file..."
                 cat > .env << EOF
