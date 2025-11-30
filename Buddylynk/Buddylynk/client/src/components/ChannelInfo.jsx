@@ -21,6 +21,7 @@ import { SafeImage } from "./SafeImage";
 import ChannelEdit from "./ChannelEdit";
 import InviteLinksScreen from "./InviteLinksScreen";
 import SubscribersList from "./SubscribersList";
+import ConfirmModal from "./ConfirmModal";
 
 const ChannelInfo = ({ 
     isOpen, 
@@ -39,6 +40,7 @@ const ChannelInfo = ({
     const [showEditPage, setShowEditPage] = useState(false);
     const [showInviteLinks, setShowInviteLinks] = useState(false);
     const [showSubscribers, setShowSubscribers] = useState(false);
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [currentGroup, setCurrentGroup] = useState(group);
 
     // Update currentGroup when group prop changes
@@ -326,7 +328,7 @@ const ChannelInfo = ({
                             {isMember && !isCreator && (
                                 <div className="bg-[#111b21] pb-8">
                                     <button
-                                        onClick={onLeaveGroup}
+                                        onClick={() => setShowLeaveConfirm(true)}
                                         className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
                                     >
                                         <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -373,6 +375,21 @@ const ChannelInfo = ({
                             // Refresh group data after member removal
                             onGroupUpdated?.(currentGroup);
                         }}
+                    />
+
+                    {/* Leave Channel Confirmation Modal */}
+                    <ConfirmModal
+                        isOpen={showLeaveConfirm}
+                        onClose={() => setShowLeaveConfirm(false)}
+                        onConfirm={() => {
+                            setShowLeaveConfirm(false);
+                            onLeaveGroup?.();
+                        }}
+                        title="Leave Channel?"
+                        message={`Are you sure you want to leave "${currentGroup?.name}"? You will no longer receive updates from this channel.`}
+                        confirmText="Leave"
+                        cancelText="Cancel"
+                        type="danger"
                     />
                 </>
             )}

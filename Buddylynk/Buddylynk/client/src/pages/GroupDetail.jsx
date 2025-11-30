@@ -348,149 +348,81 @@ const GroupDetail = () => {
                                     {post.media && (
                                         <div className="mb-2 rounded-xl overflow-hidden">
                                             {Array.isArray(post.media) ? (
-                                                // Multiple media - Telegram style grid
-                                                post.media.length === 5 ? (
-                                                    // 5-image layout: Row1 (1 large + 2 small stacked) + Row2 (2 images)
-                                                    <div className="flex flex-col gap-0.5">
-                                                        {/* Row 1: 1 large left + 2 small stacked right */}
-                                                        <div className="flex gap-0.5" style={{ height: '220px' }}>
-                                                            <div className="flex-[2] h-full overflow-hidden">
-                                                                {post.media[0].type === 'video' ? (
-                                                                    <VideoPlayer src={post.media[0].url} className="w-full h-full object-cover" />
-                                                                ) : post.media[0].type === 'image' ? (
-                                                                    <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                ) : (
-                                                                    <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex-1 flex flex-col gap-0.5 h-full">
-                                                                {post.media.slice(1, 3).map((mediaItem, idx) => (
-                                                                    <div key={idx} className="flex-1 overflow-hidden">
-                                                                        {mediaItem.type === 'video' ? (
-                                                                            <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
-                                                                        ) : mediaItem.type === 'image' ? (
-                                                                            <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                        ) : (
-                                                                            <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                        {/* Row 2: 2 images side by side */}
-                                                        <div className="flex gap-0.5" style={{ height: '110px' }}>
-                                                            {post.media.slice(3, 5).map((mediaItem, idx) => (
-                                                                <div key={idx} className="flex-1 overflow-hidden">
-                                                                    {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
-                                                                    ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                    ) : (
-                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                // Magic Frame Layout - preserves natural aspect ratios
+                                                post.media.length === 1 ? (
+                                                    // Single image - full natural aspect ratio
+                                                    <div className="flex justify-center">
+                                                        {post.media[0].type === 'video' ? (
+                                                            <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[400px] rounded-lg" />
+                                                        ) : post.media[0].type === 'image' ? (
+                                                            <SafeImage 
+                                                                src={post.media[0].url} 
+                                                                alt="Media" 
+                                                                onClick={() => setFullScreenImage(post.media[0].url)} 
+                                                                className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
+                                                            />
+                                                        ) : (
+                                                            <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
+                                                        )}
                                                     </div>
-                                                ) : post.media.length === 3 ? (
-                                                    // 3-image layout: 1 large left, 2 small stacked right
-                                                    <div className="flex gap-0.5" style={{ height: '280px' }}>
-                                                        <div className="flex-[2] h-full overflow-hidden">
-                                                            {post.media[0].type === 'video' ? (
-                                                                <VideoPlayer src={post.media[0].url} className="w-full h-full object-cover" />
-                                                            ) : post.media[0].type === 'image' ? (
-                                                                <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                            ) : (
-                                                                <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 flex flex-col gap-0.5 h-full">
-                                                            {post.media.slice(1, 3).map((mediaItem, idx) => (
-                                                                <div key={idx} className="flex-1 overflow-hidden">
-                                                                    {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
-                                                                    ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                    ) : (
-                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ) : post.media.length >= 4 ? (
-                                                    // 4+ images: Row1 (1 large + 2 small stacked) + Row2 (remaining images)
-                                                    <div className="flex flex-col gap-0.5">
-                                                        {/* Row 1: 1 large left + 2 small stacked right */}
-                                                        <div className="flex gap-0.5" style={{ height: '220px' }}>
-                                                            <div className="flex-[2] h-full overflow-hidden">
-                                                                {post.media[0].type === 'video' ? (
-                                                                    <VideoPlayer src={post.media[0].url} className="w-full h-full object-cover" />
-                                                                ) : post.media[0].type === 'image' ? (
-                                                                    <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                ) : (
-                                                                    <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex-1 flex flex-col gap-0.5 h-full">
-                                                                {post.media.slice(1, 3).map((mediaItem, idx) => (
-                                                                    <div key={idx} className="flex-1 overflow-hidden">
-                                                                        {mediaItem.type === 'video' ? (
-                                                                            <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
-                                                                        ) : mediaItem.type === 'image' ? (
-                                                                            <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                        ) : (
-                                                                            <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                        {/* Row 2: remaining images */}
-                                                        <div className="flex gap-0.5" style={{ height: '110px' }}>
-                                                            {post.media.slice(3).map((mediaItem, idx) => (
-                                                                <div key={idx} className="flex-1 overflow-hidden">
-                                                                    {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
-                                                                    ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
-                                                                    ) : (
-                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    // 1 or 2 images
-                                                    <div className={`grid gap-0.5 ${post.media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                                ) : post.media.length === 2 ? (
+                                                    // 2 images - side by side, natural aspect
+                                                    <div className="flex gap-1 items-center justify-center">
                                                         {post.media.map((mediaItem, idx) => (
-                                                            <div key={idx} className={`relative overflow-hidden bg-gray-900 ${post.media.length === 1 ? 'aspect-[4/5]' : 'aspect-square'}`}>
+                                                            <div key={idx} className="flex-1 flex justify-center">
                                                                 {mediaItem.type === 'video' ? (
-                                                                    <VideoPlayer src={mediaItem.url} className="w-full h-full object-cover" />
+                                                                    <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[250px] rounded-lg" />
                                                                 ) : mediaItem.type === 'image' ? (
-                                                                    <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" />
+                                                                    <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[250px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
                                                                 ) : (
-                                                                    <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm h-full w-full"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
+                                                                    <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
                                                                 )}
                                                             </div>
                                                         ))}
                                                     </div>
+                                                ) : (
+                                                    // 3+ images - flexible grid with natural aspect ratios
+                                                    <div className="flex flex-col gap-1">
+                                                        {/* First row - main image */}
+                                                        <div className="flex justify-center">
+                                                            {post.media[0].type === 'video' ? (
+                                                                <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[280px] rounded-lg" />
+                                                            ) : post.media[0].type === 'image' ? (
+                                                                <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="max-w-full max-h-[280px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
+                                                            ) : (
+                                                                <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
+                                                            )}
+                                                        </div>
+                                                        {/* Remaining images in rows of 2-3 */}
+                                                        <div className="flex flex-wrap gap-1 justify-center">
+                                                            {post.media.slice(1).map((mediaItem, idx) => (
+                                                                <div key={idx} className="flex justify-center" style={{ maxWidth: post.media.length <= 3 ? '48%' : '32%' }}>
+                                                                    {mediaItem.type === 'video' ? (
+                                                                        <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[180px] rounded-lg" />
+                                                                    ) : mediaItem.type === 'image' ? (
+                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[180px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
+                                                                    ) : (
+                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 )
                                             ) : (
-                                                // Single media (old format support)
-                                                <div className="aspect-[4/5] bg-gray-900 rounded-xl overflow-hidden">
-                                                    {post.mediaType === 'video' || post.media.includes('.mp4') ? (
-                                                        <VideoPlayer src={post.media} className="w-full h-full" />
-                                                    ) : post.mediaType === 'image' || post.media.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                                // Old format - single media (backward compatibility)
+                                                <div className="flex justify-center">
+                                                    {post.mediaType === 'video' || (typeof post.media === 'string' && post.media.includes('.mp4')) ? (
+                                                        <VideoPlayer src={post.media} className="max-w-full max-h-[400px] rounded-lg" />
+                                                    ) : post.mediaType === 'image' || (typeof post.media === 'string' && post.media.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
                                                         <SafeImage 
                                                             src={post.media} 
                                                             alt="Media" 
                                                             onClick={() => setFullScreenImage(post.media)}
-                                                            className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-all" 
+                                                            className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
                                                         />
                                                     ) : (
-                                                        <a href={post.media} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors h-full">
+                                                        <a href={post.media} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg">
                                                             <Paperclip className="w-4 h-4" />
                                                             <span className="text-sm">View File</span>
                                                         </a>
@@ -534,14 +466,55 @@ const GroupDetail = () => {
                                                 ) : (
                                                     <p className="break-words text-sm leading-relaxed flex-1 overflow-hidden">{post.content}</p>
                                                 )}
-                                                {/* Post Menu Button - Inside bubble */}
+                                                {/* Post Menu Button - Inside bubble with dropdown */}
                                                 {isOwn && (
-                                                    <button
-                                                        onClick={() => setShowPostMenu(showPostMenu === post.postId ? null : post.postId)}
-                                                        className="flex-shrink-0 p-1 rounded-full hover:bg-black/20 transition-all"
-                                                    >
-                                                        <MoreVertical className="w-4 h-4 text-black/60 dark:text-white/80" />
-                                                    </button>
+                                                    <div className="relative flex-shrink-0">
+                                                        <button
+                                                            onClick={() => setShowPostMenu(showPostMenu === post.postId ? null : post.postId)}
+                                                            className="p-1 rounded-full hover:bg-black/20 transition-all"
+                                                        >
+                                                            <MoreVertical className="w-4 h-4 text-black/60 dark:text-white/80" />
+                                                        </button>
+                                                        {/* Dropdown Menu - Right next to button */}
+                                                        <AnimatePresence>
+                                                            {showPostMenu === post.postId && (
+                                                                <>
+                                                                    <div 
+                                                                        className="fixed inset-0 z-[100]" 
+                                                                        onClick={() => setShowPostMenu(null)}
+                                                                    />
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                                        animate={{ opacity: 1, scale: 1 }}
+                                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                                        className="absolute top-0 right-full mr-1 bg-white dark:bg-[#202c33] rounded-lg shadow-xl border dark:border-[#2a3942] border-gray-200 overflow-hidden z-[101] min-w-[100px]"
+                                                                    >
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setEditingPostId(post.postId);
+                                                                                setEditingContent(post.content);
+                                                                                setShowPostMenu(null);
+                                                                            }}
+                                                                            className="w-full px-3 py-2 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-[#2a3942] text-gray-900 dark:text-white transition-colors text-sm"
+                                                                        >
+                                                                            <Edit2 className="w-3.5 h-3.5" />
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                handleDeletePost(post.postId);
+                                                                                setShowPostMenu(null);
+                                                                            }}
+                                                                            className="w-full px-3 py-2 flex items-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors text-sm"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                            Delete
+                                                                        </button>
+                                                                    </motion.div>
+                                                                </>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
                                                 )}
                                             </div>
                                             
@@ -554,47 +527,6 @@ const GroupDetail = () => {
                                     )}
 
                                 </div>
-                                
-                                {/* Dropdown Menu - Outside the bubble for proper visibility */}
-                                <AnimatePresence>
-                                    {showPostMenu === post.postId && isOwn && (
-                                        <>
-                                            {/* Invisible backdrop to close menu on click outside */}
-                                            <div 
-                                                className="fixed inset-0 z-[100]" 
-                                                onClick={() => setShowPostMenu(null)}
-                                            />
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.95 }}
-                                                className="absolute top-8 right-0 bg-white dark:bg-[#202c33] rounded-lg shadow-xl border dark:border-[#2a3942] border-gray-200 overflow-hidden z-[101] min-w-[120px]"
-                                            >
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingPostId(post.postId);
-                                                        setEditingContent(post.content);
-                                                        setShowPostMenu(null);
-                                                    }}
-                                                    className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-[#2a3942] text-gray-900 dark:text-white transition-colors text-sm"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        handleDeletePost(post.postId);
-                                                        setShowPostMenu(null);
-                                                    }}
-                                                    className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors text-sm"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                    Delete
-                                                </button>
-                                            </motion.div>
-                                        </>
-                                    )}
-                                </AnimatePresence>
                                 </div>
                             </motion.div>
                         );

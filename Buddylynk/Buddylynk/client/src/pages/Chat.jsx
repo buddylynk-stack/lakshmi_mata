@@ -33,9 +33,10 @@ const Chat = () => {
     const [isSending, setIsSending] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState(null);
-    const [selectedMedia, setSelectedMedia] = useState(null);
-    const [mediaPreview, setMediaPreview] = useState(null);
+    const [selectedMedia, setSelectedMedia] = useState([]);
+    const [mediaPreview, setMediaPreview] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
+    const [fullScreenImage, setFullScreenImage] = useState(null);
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const toast = useToast();
@@ -361,39 +362,54 @@ const Chat = () => {
     };
 
     const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            toast.error("File size must be less than 10MB");
-            return;
-        }
-
-        // Validate file type
         const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'];
-        if (!validTypes.includes(file.type)) {
-            toast.error("Only images and videos are allowed");
-            return;
-        }
+        const newValidFiles = [];
+        const newPreviews = [];
 
-        setSelectedMedia(file);
-        
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            setMediaPreview({
-                url: e.target.result,
+        for (const file of files) {
+            // Validate file size (max 10MB each)
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error(`${file.name} is too large (max 10MB)`);
+                continue;
+            }
+
+            // Validate file type
+            if (!validTypes.includes(file.type)) {
+                toast.error(`${file.name} is not a valid file type`);
+                continue;
+            }
+
+            // Check for duplicates by name
+            const isDuplicate = selectedMedia.some(existing => existing.name === file.name && existing.size === file.size);
+            if (isDuplicate) {
+                toast.warning(`${file.name} is already selected`);
+                continue;
+            }
+
+            newValidFiles.push(file);
+            newPreviews.push({
+                url: URL.createObjectURL(file),
                 type: file.type.startsWith('video/') ? 'video' : 'image',
                 name: file.name
             });
-        };
-        reader.readAsDataURL(file);
+        }
+
+        if (newValidFiles.length > 0) {
+            // Append to existing files instead of replacing
+            setSelectedMedia(prev => [...prev, ...newValidFiles]);
+            setMediaPreview(prev => [...prev, ...newPreviews]);
+            toast.success(`${newValidFiles.length} file(s) added`);
+        }
     };
 
     const clearMediaPreview = () => {
-        setSelectedMedia(null);
-        setMediaPreview(null);
+        // Revoke object URLs to prevent memory leaks
+        mediaPreview.forEach(preview => URL.revokeObjectURL(preview.url));
+        setSelectedMedia([]);
+        setMediaPreview([]);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -422,19 +438,23 @@ const Chat = () => {
     };
 
     const handleSendMediaMessage = async () => {
-        if (!selectedMedia || !selectedUser) return;
+        if (selectedMedia.length === 0 || !selectedUser) return;
 
         setIsUploading(true);
         const tempId = `temp-${Date.now()}`;
         
-        // Optimistic update with preview
+        // Create preview URLs array for optimistic update
+        const previewUrls = mediaPreview.map(p => p.url);
+        const mediaTypes = mediaPreview.map(p => p.type);
+        
+        // Optimistic update with all previews
         const tempMessage = {
             messageId: tempId,
             senderId: user.userId,
             receiverId: selectedUser.userId,
             content: '',
-            mediaUrl: mediaPreview.url,
-            mediaType: mediaPreview.type,
+            mediaUrl: selectedMedia.length === 1 ? previewUrls[0] : previewUrls,
+            mediaType: selectedMedia.length === 1 ? mediaTypes[0] : mediaTypes,
             createdAt: new Date().toISOString(),
             read: false,
             sending: true
@@ -442,16 +462,21 @@ const Chat = () => {
         setMessages(prev => [...prev, tempMessage]);
         
         try {
-            // Upload media to S3
-            const mediaUrl = await uploadMedia(selectedMedia);
-            
-            // Send message with media URL
             const token = localStorage.getItem("token");
+            
+            // Upload all media files
+            const uploadedUrls = [];
+            for (const file of selectedMedia) {
+                const url = await uploadMedia(file);
+                uploadedUrls.push(url);
+            }
+            
+            // Send message with all media URLs
             const res = await axios.post("/api/messages", {
                 receiverId: selectedUser.userId,
                 content: '',
-                mediaUrl,
-                mediaType: mediaPreview.type
+                mediaUrl: selectedMedia.length === 1 ? uploadedUrls[0] : uploadedUrls,
+                mediaType: selectedMedia.length === 1 ? mediaTypes[0] : mediaTypes
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -468,7 +493,7 @@ const Chat = () => {
                 });
             }
 
-            toast.success("Media sent!");
+            toast.success(`${selectedMedia.length} media file(s) sent!`);
             clearMediaPreview();
             fetchConversations();
         } catch (error) {
@@ -666,22 +691,75 @@ const Chat = () => {
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    {/* Media Content */}
+                                                                    {/* Media Content - Single or Multiple */}
                                                                     {message.mediaUrl && (
                                                                         <div className="mb-2">
-                                                                            {message.mediaType === 'video' ? (
-                                                                                <video 
-                                                                                    src={message.mediaUrl} 
-                                                                                    controls 
-                                                                                    className="max-w-full rounded-lg max-h-64"
-                                                                                />
+                                                                            {Array.isArray(message.mediaUrl) ? (
+                                                                                // Multiple media - grid layout
+                                                                                <div className={`grid gap-1 rounded-lg overflow-hidden ${
+                                                                                    message.mediaUrl.length === 1 ? 'grid-cols-1' :
+                                                                                    message.mediaUrl.length === 2 ? 'grid-cols-2' :
+                                                                                    message.mediaUrl.length === 3 ? 'grid-cols-2' :
+                                                                                    'grid-cols-2'
+                                                                                }`} style={{ maxWidth: '280px' }}>
+                                                                                    {message.mediaUrl.slice(0, 4).map((url, idx) => {
+                                                                                        const isVideo = message.mediaType?.[idx] === 'video' || url.includes('.mp4') || url.includes('.webm');
+                                                                                        const isLastWithMore = idx === 3 && message.mediaUrl.length > 4;
+                                                                                        return (
+                                                                                            <div 
+                                                                                                key={idx} 
+                                                                                                className={`relative overflow-hidden ${
+                                                                                                    message.mediaUrl.length === 3 && idx === 0 ? 'col-span-2' : ''
+                                                                                                }`}
+                                                                                                style={{ aspectRatio: message.mediaUrl.length === 1 ? 'auto' : '1' }}
+                                                                                            >
+                                                                                                {isVideo ? (
+                                                                                                    <video 
+                                                                                                        src={url} 
+                                                                                                        controls 
+                                                                                                        controlsList="nodownload nofullscreen noremoteplayback"
+                                                                                                        disablePictureInPicture
+                                                                                                        onContextMenu={(e) => e.preventDefault()}
+                                                                                                        className="w-full h-full object-cover"
+                                                                                                    />
+                                                                                                ) : (
+                                                                                                    <img 
+                                                                                                        src={url} 
+                                                                                                        alt="Media" 
+                                                                                                        className={`w-full h-full cursor-pointer hover:opacity-90 transition-all ${
+                                                                                                            message.mediaUrl.length === 1 ? 'max-h-64 object-contain' : 'object-cover'
+                                                                                                        }`}
+                                                                                                        onClick={() => setFullScreenImage(url)}
+                                                                                                    />
+                                                                                                )}
+                                                                                                {isLastWithMore && (
+                                                                                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl">
+                                                                                                        +{message.mediaUrl.length - 4}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
                                                                             ) : (
-                                                                                <img 
-                                                                                    src={message.mediaUrl} 
-                                                                                    alt="Media" 
-                                                                                    className="max-w-full rounded-lg max-h-64 cursor-pointer"
-                                                                                    onClick={() => window.open(message.mediaUrl, '_blank')}
-                                                                                />
+                                                                                // Single media
+                                                                                message.mediaType === 'video' ? (
+                                                                                    <video 
+                                                                                        src={message.mediaUrl} 
+                                                                                        controls 
+                                                                                        controlsList="nodownload nofullscreen noremoteplayback"
+                                                                                        disablePictureInPicture
+                                                                                        onContextMenu={(e) => e.preventDefault()}
+                                                                                        className="max-w-full rounded-lg max-h-64"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <img 
+                                                                                        src={message.mediaUrl} 
+                                                                                        alt="Media" 
+                                                                                        className="max-w-full rounded-lg max-h-64 cursor-pointer hover:opacity-90 transition-all"
+                                                                                        onClick={() => setFullScreenImage(message.mediaUrl)}
+                                                                                    />
+                                                                                )
                                                                             )}
                                                                         </div>
                                                                     )}
@@ -802,42 +880,71 @@ const Chat = () => {
                                     )}
                                     
                                     {/* Media Preview */}
-                                    {mediaPreview && (
+                                    {mediaPreview.length > 0 && (
                                         <div className="dark:bg-[#202c33] bg-white px-3 py-2 border-t dark:border-[#2a3942] border-gray-200">
-                                            <div className="relative inline-block">
-                                                {mediaPreview.type === 'image' ? (
-                                                    <img 
-                                                        src={mediaPreview.url} 
-                                                        alt="Preview" 
-                                                        className="max-h-32 rounded-lg"
-                                                    />
-                                                ) : (
-                                                    <video 
-                                                        src={mediaPreview.url} 
-                                                        className="max-h-32 rounded-lg"
-                                                        controls
-                                                    />
-                                                )}
+                                            <div className="flex gap-2 flex-wrap mb-2 items-center">
+                                                {mediaPreview.map((preview, idx) => (
+                                                    <div key={idx} className="relative">
+                                                        {preview.type === 'image' ? (
+                                                            <img 
+                                                                src={preview.url} 
+                                                                alt="Preview" 
+                                                                className="h-20 w-20 object-cover rounded-lg"
+                                                            />
+                                                        ) : (
+                                                            <video 
+                                                                src={preview.url} 
+                                                                className="h-20 w-20 object-cover rounded-lg"
+                                                            />
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                URL.revokeObjectURL(preview.url);
+                                                                setMediaPreview(prev => prev.filter((_, i) => i !== idx));
+                                                                setSelectedMedia(prev => prev.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {/* Add more button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (fileInputRef.current) {
+                                                            fileInputRef.current.value = '';
+                                                        }
+                                                        fileInputRef.current?.click();
+                                                    }}
+                                                    className="h-20 w-20 rounded-lg border-2 border-dashed dark:border-gray-600 border-gray-300 flex items-center justify-center dark:text-gray-400 text-gray-500 hover:dark:border-gray-500 hover:border-gray-400 transition-colors"
+                                                >
+                                                    <span className="text-3xl">+</span>
+                                                </button>
+                                            </div>
+                                            <div className="flex gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={clearMediaPreview}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                                    className="flex-1 py-2 rounded-lg text-gray-700 dark:text-gray-300 font-medium border dark:border-gray-600 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                                                 >
-                                                    <X className="w-4 h-4" />
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSendMediaMessage}
+                                                    disabled={isUploading}
+                                                    className={`flex-1 py-2 rounded-lg text-white font-medium ${
+                                                        isUploading 
+                                                            ? 'bg-primary/50 cursor-not-allowed' 
+                                                            : 'bg-primary hover:bg-primary/90'
+                                                    }`}
+                                                >
+                                                    {isUploading ? 'Uploading...' : `Send ${mediaPreview.length} file(s)`}
                                                 </button>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleSendMediaMessage}
-                                                disabled={isUploading}
-                                                className={`mt-2 w-full py-2 rounded-lg text-white font-medium ${
-                                                    isUploading 
-                                                        ? 'bg-primary/50 cursor-not-allowed' 
-                                                        : 'bg-primary hover:bg-primary/90'
-                                                }`}
-                                            >
-                                                {isUploading ? 'Uploading...' : 'Send Media'}
-                                            </button>
                                         </div>
                                     )}
                                     
@@ -850,20 +957,31 @@ const Chat = () => {
                                         >
                                             <Smile className="w-6 h-6" />
                                         </button>
+                                        {/* Hidden file input for multiple selection */}
                                         <input
                                             ref={fileInputRef}
                                             type="file"
-                                            accept="image/*,video/*"
+                                            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime"
+                                            multiple
                                             className="hidden"
                                             onChange={handleFileSelect}
                                         />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="dark:text-[#8696a0] text-gray-600 dark:hover:text-white hover:text-gray-900 p-2"
-                                        >
-                                            <Paperclip className="w-6 h-6" />
-                                        </button>
+                                        {/* Attachment button with dropdown for mobile */}
+                                        <div className="relative">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    // Reset input to allow selecting same files again
+                                                    if (fileInputRef.current) {
+                                                        fileInputRef.current.value = '';
+                                                    }
+                                                    fileInputRef.current?.click();
+                                                }}
+                                                className="dark:text-[#8696a0] text-gray-600 dark:hover:text-white hover:text-gray-900 p-2"
+                                            >
+                                                <Paperclip className="w-6 h-6" />
+                                            </button>
+                                        </div>
                                         <input
                                             type="text"
                                             placeholder="Type a message"
@@ -945,6 +1063,35 @@ const Chat = () => {
                 cancelText="Cancel"
                 type="danger"
             />
+            
+            {/* Full Screen Image Viewer */}
+            <AnimatePresence>
+                {fullScreenImage && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center"
+                        onClick={() => setFullScreenImage(null)}
+                    >
+                        <button
+                            onClick={() => setFullScreenImage(null)}
+                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
+                        >
+                            <X className="w-6 h-6 text-white" />
+                        </button>
+                        <motion.img
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            src={fullScreenImage}
+                            alt="Full size"
+                            className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 };

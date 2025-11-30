@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useUnreadMessages } from "../hooks/useUnreadMessages";
 import { Home, Search, Users, User, Settings, LogOut, MessageCircle, Bookmark, Sparkles, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ConfirmModal from "./ConfirmModal";
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -11,6 +12,7 @@ const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     
     const isOnChatPage = location.pathname === '/chat';
     const showUnreadIndicator = unreadMessagesCount > 0 && !isOnChatPage;
@@ -150,7 +152,7 @@ const Navbar = () => {
                 <div className="p-4 border-t dark:border-white/10 border-gray-200">
                     {user ? (
                         <motion.button
-                            onClick={handleLogout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             className="flex items-center gap-3 px-4 py-3 text-red-500 hover:text-red-400 dark:hover:bg-red-500/10 hover:bg-red-50 rounded-xl w-full transition-all group"
                             whileHover={{ x: 5 }}
                             whileTap={{ scale: 0.98 }}
@@ -291,7 +293,7 @@ const Navbar = () => {
                                         transition={{ delay: 0.3 }}
                                         onClick={() => {
                                             setShowMobileMenu(false);
-                                            handleLogout();
+                                            setShowLogoutConfirm(true);
                                         }}
                                         className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-red-500/10 text-red-500 rounded-xl font-medium hover:bg-red-500/20 transition-all"
                                     >
@@ -318,6 +320,21 @@ const Navbar = () => {
                     </>
                 )}
             </AnimatePresence>
+
+            {/* Logout Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={() => {
+                    setShowLogoutConfirm(false);
+                    handleLogout();
+                }}
+                title="Logout?"
+                message="Are you sure you want to logout from Buddylynk?"
+                confirmText="Logout"
+                cancelText="Cancel"
+                type="danger"
+            />
         </>
     );
 };

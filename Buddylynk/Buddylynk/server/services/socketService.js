@@ -38,6 +38,13 @@ class SocketService {
             USER_ONLINE: "user:online",
             USER_OFFLINE: "user:offline",
             UNREAD_COUNT_UPDATED: "unread:count:updated",
+            // Channel events
+            CHANNEL_CREATED: "channel:created",
+            CHANNEL_UPDATED: "channel:updated",
+            CHANNEL_DELETED: "channel:deleted",
+            CHANNEL_POST_CREATED: "channel:post:created",
+            CHANNEL_POST_UPDATED: "channel:post:updated",
+            CHANNEL_POST_DELETED: "channel:post:deleted",
         };
     }
 
@@ -265,6 +272,25 @@ class SocketService {
                 case this.CHANNELS.UNREAD_COUNT_UPDATED:
                     this.broadcastUnreadCountUpdate(data);
                     break;
+                // Channel events
+                case this.CHANNELS.CHANNEL_CREATED:
+                    this.broadcastChannelCreated(data);
+                    break;
+                case this.CHANNELS.CHANNEL_UPDATED:
+                    this.broadcastChannelUpdated(data);
+                    break;
+                case this.CHANNELS.CHANNEL_DELETED:
+                    this.broadcastChannelDeleted(data);
+                    break;
+                case this.CHANNELS.CHANNEL_POST_CREATED:
+                    this.broadcastChannelPostCreated(data);
+                    break;
+                case this.CHANNELS.CHANNEL_POST_UPDATED:
+                    this.broadcastChannelPostUpdated(data);
+                    break;
+                case this.CHANNELS.CHANNEL_POST_DELETED:
+                    this.broadcastChannelPostDeleted(data);
+                    break;
                 default:
                     console.warn(`Unknown channel: ${channel}`);
             }
@@ -396,6 +422,59 @@ class SocketService {
     broadcastGroupDeleted(groupId) {
         this.io.emit("groupDeleted", groupId);
         console.log(`📢 Broadcasted group deletion: ${groupId}`);
+    }
+
+    // ==================== CHANNEL BROADCAST METHODS ====================
+
+    /**
+     * Broadcast channel created
+     */
+    broadcastChannelCreated(data) {
+        this.io.emit("channelCreated", data);
+        console.log(`📢 Broadcasted channel created: ${data.channelId}`);
+    }
+
+    /**
+     * Broadcast channel updated
+     */
+    broadcastChannelUpdated(data) {
+        this.io.emit("channelUpdated", data);
+        console.log(`📢 Broadcasted channel updated: ${data.channelId}`);
+    }
+
+    /**
+     * Broadcast channel deleted
+     */
+    broadcastChannelDeleted(channelId) {
+        this.io.emit("channelDeleted", channelId);
+        console.log(`📢 Broadcasted channel deletion: ${channelId}`);
+    }
+
+    /**
+     * Broadcast channel post created
+     */
+    broadcastChannelPostCreated(data) {
+        const { channelId, post } = data;
+        this.io.emit("channelPostCreated", { channelId, post });
+        console.log(`📢 Broadcasted channel post created: ${post.postId} in channel ${channelId}`);
+    }
+
+    /**
+     * Broadcast channel post updated
+     */
+    broadcastChannelPostUpdated(data) {
+        const { channelId, post } = data;
+        this.io.emit("channelPostUpdated", { channelId, post });
+        console.log(`📢 Broadcasted channel post updated: ${post.postId} in channel ${channelId}`);
+    }
+
+    /**
+     * Broadcast channel post deleted
+     */
+    broadcastChannelPostDeleted(data) {
+        const { channelId, postId } = data;
+        this.io.emit("channelPostDeleted", { channelId, postId });
+        console.log(`📢 Broadcasted channel post deleted: ${postId} in channel ${channelId}`);
     }
 
     /**
