@@ -5,7 +5,7 @@ import { useNotifications } from "../context/NotificationContext";
 import { useToast } from "../context/ToastContext";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Search, ArrowLeft, MoreVertical, Phone, Video, Paperclip, Smile, Mic, Eye, EyeOff, Edit2, Trash2, X } from "lucide-react";
+import { Send, Search, ArrowLeft, MoreVertical, Phone, Video, Paperclip, Smile, Mic, Eye, EyeOff, Edit2, Trash2, X, Image, FileText, Camera, Music, MapPin, ChevronLeft, ChevronRight, Layers, Grid3X3 } from "lucide-react";
 import { SafeAvatar } from "../components/SafeImage";
 import CallModal from "../components/CallModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -38,7 +38,12 @@ const Chat = () => {
     const [mediaPreview, setMediaPreview] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [fullScreenImage, setFullScreenImage] = useState(null);
+    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+    const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
+    const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+    const [showMediaOptionsMenu, setShowMediaOptionsMenu] = useState(false);
     const fileInputRef = useRef(null);
+    const documentInputRef = useRef(null);
     const messagesEndRef = useRef(null);
     const toast = useToast();
 
@@ -403,6 +408,8 @@ const Chat = () => {
             setSelectedMedia(prev => [...prev, ...newValidFiles]);
             setMediaPreview(prev => [...prev, ...newPreviews]);
             toast.success(`${newValidFiles.length} file(s) added`);
+            // Auto-open attachment modal to show full UI
+            setShowAttachmentMenu(true);
         }
     };
 
@@ -872,24 +879,129 @@ const Chat = () => {
                                         </div>
                                     )}
                                     
-                                    {/* Media Preview */}
+                                    {/* Telegram-style Media Preview with Numbers */}
                                     {mediaPreview.length > 0 && (
-                                        <div className="dark:bg-[#202c33] bg-white px-3 py-2 border-t dark:border-[#2a3942] border-gray-200">
-                                            <div className="flex gap-2 flex-wrap mb-2 items-center">
+                                        <div className="dark:bg-[#202c33] bg-white px-3 py-3 border-t dark:border-[#2a3942] border-gray-200">
+                                            {/* Header with count, three dots menu, and close button */}
+                                            <div className="flex items-center justify-between mb-3">
+                                                {/* Left side - photo count */}
+                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {mediaPreview.length} {mediaPreview.length === 1 ? 'photo' : 'photos'} selected
+                                                </span>
+                                                
+                                                {/* Right side - Three dots menu and Close button */}
+                                                <div className="flex items-center gap-1">
+                                                    {/* Three dots menu */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowMediaOptionsMenu(!showMediaOptionsMenu)}
+                                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#2a3942] rounded-full transition-colors"
+                                                    >
+                                                        <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                                    </button>
+                                                    
+                                                    {/* Close button */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={clearMediaPreview}
+                                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#2a3942] rounded-full transition-colors"
+                                                    >
+                                                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Three dots dropdown menu */}
+                                            <AnimatePresence>
+                                                {showMediaOptionsMenu && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-40" onClick={() => setShowMediaOptionsMenu(false)} />
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            exit={{ opacity: 0, scale: 0.95 }}
+                                                            className="absolute right-3 top-12 bg-white dark:bg-[#202c33] rounded-xl shadow-2xl border dark:border-[#2a3942] border-gray-200 overflow-hidden z-50 min-w-[200px]"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setShowMediaOptionsMenu(false);
+                                                                    setCurrentPreviewIndex(0);
+                                                                    setShowMediaPreviewModal(true);
+                                                                }}
+                                                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                            >
+                                                                <Eye className="w-5 h-5 text-[#3390ec]" />
+                                                                <span className="text-gray-900 dark:text-white font-medium">Show preview</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    setShowMediaOptionsMenu(false);
+                                                                    if (selectedMedia.length === 0 || !selectedUser) return;
+                                                                    setIsUploading(true);
+                                                                    for (let i = 0; i < selectedMedia.length; i++) {
+                                                                        const file = selectedMedia[i];
+                                                                        const preview = mediaPreview[i];
+                                                                        const tempId = `temp-${Date.now()}-${i}`;
+                                                                        const tempMessage = {
+                                                                            messageId: tempId, senderId: user.userId, receiverId: selectedUser.userId,
+                                                                            content: '', mediaUrl: preview.url, mediaType: preview.type,
+                                                                            createdAt: new Date().toISOString(), read: false, sending: true
+                                                                        };
+                                                                        setMessages(prev => [...prev, tempMessage]);
+                                                                        try {
+                                                                            const token = localStorage.getItem("token");
+                                                                            const url = await uploadMedia(file);
+                                                                            const res = await axios.post("/api/messages", {
+                                                                                receiverId: selectedUser.userId, content: '', mediaUrl: url, mediaType: preview.type
+                                                                            }, { headers: { Authorization: `Bearer ${token}` } });
+                                                                            setMessages(prev => prev.map(msg => msg.messageId === tempId ? res.data : msg));
+                                                                            if (socket) socket.emit("sendMessage", { ...res.data });
+                                                                        } catch (error) {
+                                                                            setMessages(prev => prev.filter(msg => msg.messageId !== tempId));
+                                                                        }
+                                                                    }
+                                                                    toast.success(`${selectedMedia.length} files sent individually!`);
+                                                                    clearMediaPreview();
+                                                                    fetchConversations();
+                                                                    setIsUploading(false);
+                                                                }}
+                                                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                            >
+                                                                <Grid3X3 className="w-5 h-5 text-[#3390ec]" />
+                                                                <span className="text-gray-900 dark:text-white font-medium">Send without grouping</span>
+                                                            </button>
+                                                        </motion.div>
+                                                    </>
+                                                )}
+                                            </AnimatePresence>
+                                            
+                                            {/* Photos Grid with Numbers - Telegram Style */}
+                                            <div className="flex gap-2 flex-wrap mb-3 items-center">
                                                 {mediaPreview.map((preview, idx) => (
-                                                    <div key={idx} className="relative">
+                                                    <div key={idx} className="relative group">
                                                         {preview.type === 'image' ? (
                                                             <img 
                                                                 src={preview.url} 
-                                                                alt="Preview" 
-                                                                className="h-20 w-20 object-cover rounded-lg"
+                                                                alt={`Preview ${idx + 1}`} 
+                                                                className="h-16 w-16 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                onClick={() => {
+                                                                    setCurrentPreviewIndex(idx);
+                                                                    setShowMediaPreviewModal(true);
+                                                                }}
                                                             />
                                                         ) : (
                                                             <video 
                                                                 src={preview.url} 
-                                                                className="h-20 w-20 object-cover rounded-lg"
+                                                                className="h-16 w-16 object-cover rounded-lg"
                                                             />
                                                         )}
+                                                        {/* Number Badge - Telegram Style */}
+                                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#3390ec] rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                                            {idx + 1}
+                                                        </div>
+                                                        {/* Remove button on hover */}
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -897,7 +1009,7 @@ const Chat = () => {
                                                                 setMediaPreview(prev => prev.filter((_, i) => i !== idx));
                                                                 setSelectedMedia(prev => prev.filter((_, i) => i !== idx));
                                                             }}
-                                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                                            className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                                         >
                                                             <X className="w-3 h-3" />
                                                         </button>
@@ -912,32 +1024,26 @@ const Chat = () => {
                                                         }
                                                         fileInputRef.current?.click();
                                                     }}
-                                                    className="h-20 w-20 rounded-lg border-2 border-dashed dark:border-gray-600 border-gray-300 flex items-center justify-center dark:text-gray-400 text-gray-500 hover:dark:border-gray-500 hover:border-gray-400 transition-colors"
+                                                    className="h-16 w-16 rounded-lg border-2 border-dashed dark:border-gray-600 border-gray-300 flex items-center justify-center dark:text-gray-400 text-gray-500 hover:dark:border-gray-500 hover:border-gray-400 transition-colors"
                                                 >
-                                                    <span className="text-3xl">+</span>
+                                                    <span className="text-2xl">+</span>
                                                 </button>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={clearMediaPreview}
-                                                    className="flex-1 py-2 rounded-lg text-gray-700 dark:text-gray-300 font-medium border dark:border-gray-600 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSendMediaMessage}
-                                                    disabled={isUploading}
-                                                    className={`flex-1 py-2 rounded-lg text-white font-medium ${
-                                                        isUploading 
-                                                            ? 'bg-primary/50 cursor-not-allowed' 
-                                                            : 'bg-primary hover:bg-primary/90'
-                                                    }`}
-                                                >
-                                                    {isUploading ? 'Uploading...' : `Send ${mediaPreview.length} file(s)`}
-                                                </button>
-                                            </div>
+                                            
+                                            {/* Send Button */}
+                                            <button
+                                                type="button"
+                                                onClick={handleSendMediaMessage}
+                                                disabled={isUploading}
+                                                className={`w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 ${
+                                                    isUploading 
+                                                        ? 'bg-[#00a884]/50 cursor-not-allowed' 
+                                                        : 'bg-[#00a884] hover:bg-[#06cf9c]'
+                                                } text-white transition-colors`}
+                                            >
+                                                <Send className="w-4 h-4" />
+                                                {isUploading ? 'Sending...' : `Send ${selectedMedia.length} ${selectedMedia.length === 1 ? 'Photo' : 'Photos'}`}
+                                            </button>
                                         </div>
                                     )}
                                     
@@ -950,7 +1056,7 @@ const Chat = () => {
                                         >
                                             <Smile className="w-6 h-6" />
                                         </button>
-                                        {/* Hidden file input for multiple selection */}
+                                        {/* Hidden file inputs */}
                                         <input
                                             ref={fileInputRef}
                                             type="file"
@@ -959,21 +1065,261 @@ const Chat = () => {
                                             className="hidden"
                                             onChange={handleFileSelect}
                                         />
-                                        {/* Attachment button with dropdown for mobile */}
+                                        <input
+                                            ref={documentInputRef}
+                                            type="file"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                                            multiple
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        {/* Telegram-style Attachment Menu */}
                                         <div className="relative">
                                             <button 
                                                 type="button" 
-                                                onClick={() => {
-                                                    // Reset input to allow selecting same files again
-                                                    if (fileInputRef.current) {
-                                                        fileInputRef.current.value = '';
-                                                    }
-                                                    fileInputRef.current?.click();
-                                                }}
+                                                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
                                                 className="dark:text-[#8696a0] text-gray-600 dark:hover:text-white hover:text-gray-900 p-2"
                                             >
                                                 <Paperclip className="w-6 h-6" />
                                             </button>
+                                            
+                                            {/* Telegram-style Attachment Popup - Full Modal for PC */}
+                                            <AnimatePresence>
+                                                {showAttachmentMenu && (
+                                                    <>
+                                                        {/* Dark Backdrop */}
+                                                        <motion.div 
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            exit={{ opacity: 0 }}
+                                                            className="fixed inset-0 bg-black/50 z-[100]"
+                                                            onClick={() => setShowAttachmentMenu(false)}
+                                                        />
+                                                        
+                                                        {/* Telegram-style Modal - Mobile friendly positioning */}
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: 100 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: 100 }}
+                                                            transition={{ duration: 0.2, ease: "easeOut" }}
+                                                            className="fixed left-0 right-0 bottom-0 md:left-1/2 md:top-1/2 md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 bg-white dark:bg-[#202c33] rounded-t-2xl md:rounded-2xl shadow-2xl border dark:border-[#2a3942] border-gray-200 overflow-hidden z-[101] w-full md:w-[90vw] md:max-w-[500px] max-h-[70vh] md:max-h-[85vh] overflow-y-auto"
+                                                        >
+                                                            {/* Header */}
+                                                            <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2a3942] border-gray-200 sticky top-0 bg-white dark:bg-[#202c33] z-10">
+                                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                                                    {mediaPreview.length > 0 
+                                                                        ? `${mediaPreview.length} ${mediaPreview.length === 1 ? 'photo' : 'photos'} selected`
+                                                                        : 'Send File'
+                                                                    }
+                                                                </h3>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowAttachmentMenu(false)}
+                                                                    className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                >
+                                                                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <div className="p-4">
+                                                                {/* Selected Photos Grid with Numbers - Telegram Style */}
+                                                                {mediaPreview.length > 0 && (
+                                                                    <div className="mb-4">
+                                                                        <div className="grid grid-cols-4 gap-2 mb-4">
+                                                                            {mediaPreview.map((preview, idx) => (
+                                                                                <div key={idx} className="relative group aspect-square">
+                                                                                    {preview.type === 'image' ? (
+                                                                                        <img 
+                                                                                            src={preview.url} 
+                                                                                            alt={`Preview ${idx + 1}`} 
+                                                                                            className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                            onClick={() => {
+                                                                                                setCurrentPreviewIndex(idx);
+                                                                                                setShowMediaPreviewModal(true);
+                                                                                                setShowAttachmentMenu(false);
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <video 
+                                                                                            src={preview.url} 
+                                                                                            className="w-full h-full object-cover rounded-lg"
+                                                                                        />
+                                                                                    )}
+                                                                                    {/* Number Badge - Telegram Style */}
+                                                                                    <div className="absolute top-1 right-1 w-6 h-6 bg-[#3390ec] rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                                                                        {idx + 1}
+                                                                                    </div>
+                                                                                    {/* Remove button on hover */}
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            URL.revokeObjectURL(preview.url);
+                                                                                            setMediaPreview(prev => prev.filter((_, i) => i !== idx));
+                                                                                            setSelectedMedia(prev => prev.filter((_, i) => i !== idx));
+                                                                                        }}
+                                                                                        className="absolute bottom-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                                    >
+                                                                                        <X className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                            {/* Add more button in grid */}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    if (fileInputRef.current) fileInputRef.current.value = '';
+                                                                                    fileInputRef.current?.click();
+                                                                                }}
+                                                                                className="aspect-square rounded-lg border-2 border-dashed dark:border-gray-600 border-gray-300 flex items-center justify-center dark:text-gray-400 text-gray-500 hover:dark:border-gray-500 hover:border-gray-400 transition-colors"
+                                                                            >
+                                                                                <span className="text-3xl">+</span>
+                                                                            </button>
+                                                                        </div>
+                                                                        
+                                                                        {/* Send Button */}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setShowAttachmentMenu(false);
+                                                                                handleSendMediaMessage();
+                                                                            }}
+                                                                            disabled={isUploading}
+                                                                            className={`w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 mb-4 ${
+                                                                                isUploading 
+                                                                                    ? 'bg-[#00a884]/50 cursor-not-allowed' 
+                                                                                    : 'bg-[#00a884] hover:bg-[#06cf9c]'
+                                                                            } text-white transition-colors`}
+                                                                        >
+                                                                            <Send className="w-4 h-4" />
+                                                                            {isUploading ? 'Sending...' : `Send ${selectedMedia.length} ${selectedMedia.length === 1 ? 'Photo' : 'Photos'}`}
+                                                                        </button>
+                                                                        
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {/* Quick Actions Grid - Only show when no photos selected */}
+                                                                {mediaPreview.length === 0 && (
+                                                                <div className="grid grid-cols-4 gap-3 mb-4">
+                                                                    {/* Photo & Video */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                                                            fileInputRef.current?.click();
+                                                                        }}
+                                                                        className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                    >
+                                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
+                                                                            <Image className="w-6 h-6 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">Gallery</span>
+                                                                    </button>
+                                                                    
+                                                                    {/* Document */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (documentInputRef.current) documentInputRef.current.value = '';
+                                                                            documentInputRef.current?.click();
+                                                                        }}
+                                                                        className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                    >
+                                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                                                                            <FileText className="w-6 h-6 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">File</span>
+                                                                    </button>
+                                                                    
+                                                                    {/* Camera */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            toast.info("Camera feature coming soon!");
+                                                                            setShowAttachmentMenu(false);
+                                                                        }}
+                                                                        className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                    >
+                                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg">
+                                                                            <Camera className="w-6 h-6 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">Camera</span>
+                                                                    </button>
+                                                                    
+                                                                    {/* Location */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            toast.info("Location sharing coming soon!");
+                                                                            setShowAttachmentMenu(false);
+                                                                        }}
+                                                                        className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                    >
+                                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                                                                            <MapPin className="w-6 h-6 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">Location</span>
+                                                                    </button>
+                                                                </div>
+                                                                )}
+                                                                
+                                                                {/* Drag & Drop Area - PC Feature - Only show when no photos selected */}
+                                                                {mediaPreview.length === 0 && (
+                                                                <div 
+                                                                    className="border-2 border-dashed dark:border-[#3a4a54] border-gray-300 rounded-xl p-6 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer"
+                                                                    onClick={() => {
+                                                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                                                        fileInputRef.current?.click();
+                                                                    }}
+                                                                    onDragOver={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.add('border-primary', 'bg-primary/5');
+                                                                    }}
+                                                                    onDragLeave={(e) => {
+                                                                        e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                                                                    }}
+                                                                    onDrop={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                                                                        const files = e.dataTransfer.files;
+                                                                        if (files.length > 0) {
+                                                                            const event = { target: { files } };
+                                                                            handleFileSelect(event);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 dark:bg-[#2a3942] flex items-center justify-center">
+                                                                        <Image className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                                                                    </div>
+                                                                    <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-1">
+                                                                        Drag files here or click to browse
+                                                                    </p>
+                                                                    <p className="text-gray-400 dark:text-gray-500 text-xs">
+                                                                        Images, Videos, Documents (Max 10MB each)
+                                                                    </p>
+                                                                </div>
+                                                                )}
+                                                                
+                                                                {/* Audio Option */}
+                                                                {mediaPreview.length === 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        toast.info("Audio feature coming soon!");
+                                                                        setShowAttachmentMenu(false);
+                                                                    }}
+                                                                    className="w-full mt-3 px-4 py-3 flex items-center gap-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                                >
+                                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                                                                        <Music className="w-5 h-5 text-white" />
+                                                                    </div>
+                                                                    <span className="text-gray-900 dark:text-white font-medium">Send Audio</span>
+                                                                </button>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    </>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                         <input
                                             type="text"
@@ -1082,6 +1428,231 @@ const Chat = () => {
                             className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            
+            {/* Telegram-style Media Preview Modal - Shows how it will look after sending */}
+            <AnimatePresence>
+                {showMediaPreviewModal && mediaPreview.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/95 z-[300] flex flex-col"
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-black/50">
+                            <button
+                                onClick={() => setShowMediaPreviewModal(false)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <ArrowLeft className="w-6 h-6 text-white" />
+                            </button>
+                            <div className="text-white text-center">
+                                <span className="font-medium">Preview</span>
+                                <span className="text-white/60"> - {mediaPreview.length} {mediaPreview.length === 1 ? 'photo' : 'photos'}</span>
+                            </div>
+                            <button
+                                onClick={() => setShowMediaPreviewModal(false)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <X className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
+                        
+                        {/* Main Preview Area - Shows exactly like channel upload (big photo + small row) */}
+                        <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+                            <div className="max-w-sm w-full">
+                                {/* Message bubble preview - Telegram style grouped layout */}
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="bg-gradient-to-br from-primary/80 to-secondary/80 rounded-2xl rounded-br-none p-1.5 shadow-lg"
+                                >
+                                    {mediaPreview.length === 1 ? (
+                                        /* Single image - full size */
+                                        <div className="rounded-xl overflow-hidden">
+                                            {mediaPreview[0].type === 'video' ? (
+                                                <video src={mediaPreview[0].url} className="w-full max-h-[300px] object-contain" />
+                                            ) : (
+                                                <img src={mediaPreview[0].url} alt="Preview" className="w-full max-h-[300px] object-contain" />
+                                            )}
+                                        </div>
+                                    ) : mediaPreview.length === 2 ? (
+                                        /* 2 images - side by side */
+                                        <div className="grid grid-cols-2 gap-0.5 rounded-xl overflow-hidden">
+                                            {mediaPreview.map((preview, idx) => (
+                                                <div key={idx} className="aspect-square">
+                                                    {preview.type === 'video' ? (
+                                                        <video src={preview.url} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <img src={preview.url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        /* 3+ images - Big one on top, small ones in row below */
+                                        <div className="rounded-xl overflow-hidden">
+                                            {/* Main large image */}
+                                            <div className="w-full aspect-[4/3] mb-0.5">
+                                                {mediaPreview[0].type === 'video' ? (
+                                                    <video src={mediaPreview[0].url} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <img src={mediaPreview[0].url} alt="Preview 1" className="w-full h-full object-cover" />
+                                                )}
+                                            </div>
+                                            {/* Small images row */}
+                                            <div className={`grid gap-0.5 ${
+                                                mediaPreview.length === 3 ? 'grid-cols-2' :
+                                                mediaPreview.length === 4 ? 'grid-cols-3' :
+                                                mediaPreview.length >= 5 ? 'grid-cols-4' : 'grid-cols-3'
+                                            }`}>
+                                                {mediaPreview.slice(1, 5).map((preview, idx) => {
+                                                    const isLast = idx === 3 && mediaPreview.length > 5;
+                                                    return (
+                                                        <div key={idx + 1} className="aspect-square relative">
+                                                            {preview.type === 'video' ? (
+                                                                <video src={preview.url} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <img src={preview.url} alt={`Preview ${idx + 2}`} className="w-full h-full object-cover" />
+                                                            )}
+                                                            {isLast && (
+                                                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
+                                                                    +{mediaPreview.length - 5}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Time stamp */}
+                                    <div className="flex items-center justify-end gap-1.5 mt-1 px-1">
+                                        <span className="text-[10px] text-white/70">
+                                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                                
+                                {/* Label */}
+                                <p className="text-white/60 text-center text-sm mt-4">
+                                    This is how your {mediaPreview.length} {mediaPreview.length === 1 ? 'photo' : 'photos'} will appear
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Thumbnail Strip */}
+                        <div className="px-4 py-3 bg-black/50">
+                            <div className="flex gap-2 justify-center overflow-x-auto pb-2">
+                                {mediaPreview.map((preview, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="relative flex-shrink-0 rounded-lg overflow-hidden"
+                                    >
+                                        {preview.type === 'image' ? (
+                                            <img
+                                                src={preview.url}
+                                                alt={`Thumb ${idx + 1}`}
+                                                className="w-14 h-14 object-cover"
+                                            />
+                                        ) : (
+                                            <video
+                                                src={preview.url}
+                                                className="w-14 h-14 object-cover"
+                                            />
+                                        )}
+                                        {/* Number Badge */}
+                                        <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-[#3390ec] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                                            {idx + 1}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Bottom Actions */}
+                        <div className="px-4 py-4 bg-black/80 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowMediaPreviewModal(false);
+                                    handleSendMediaMessage();
+                                }}
+                                disabled={isUploading}
+                                className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 ${
+                                    isUploading 
+                                        ? 'bg-[#3390ec]/50 cursor-not-allowed' 
+                                        : 'bg-[#3390ec] hover:bg-[#2b7fd4]'
+                                } text-white transition-colors`}
+                            >
+                                <Layers className="w-5 h-5" />
+                                {isUploading ? 'Sending...' : `Send as Group (${mediaPreview.length})`}
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setShowMediaPreviewModal(false);
+                                    if (selectedMedia.length === 0 || !selectedUser) return;
+                                    setIsUploading(true);
+                                    
+                                    for (let i = 0; i < selectedMedia.length; i++) {
+                                        const file = selectedMedia[i];
+                                        const preview = mediaPreview[i];
+                                        const tempId = `temp-${Date.now()}-${i}`;
+                                        
+                                        const tempMessage = {
+                                            messageId: tempId,
+                                            senderId: user.userId,
+                                            receiverId: selectedUser.userId,
+                                            content: '',
+                                            mediaUrl: preview.url,
+                                            mediaType: preview.type,
+                                            createdAt: new Date().toISOString(),
+                                            read: false,
+                                            sending: true
+                                        };
+                                        setMessages(prev => [...prev, tempMessage]);
+                                        
+                                        try {
+                                            const token = localStorage.getItem("token");
+                                            const url = await uploadMedia(file);
+                                            
+                                            const res = await axios.post("/api/messages", {
+                                                receiverId: selectedUser.userId,
+                                                content: '',
+                                                mediaUrl: url,
+                                                mediaType: preview.type
+                                            }, {
+                                                headers: { Authorization: `Bearer ${token}` }
+                                            });
+                                            
+                                            setMessages(prev => prev.map(msg => 
+                                                msg.messageId === tempId ? res.data : msg
+                                            ));
+                                            
+                                            if (socket) {
+                                                socket.emit("sendMessage", { ...res.data });
+                                            }
+                                        } catch (error) {
+                                            console.error(`Error sending file ${i + 1}:`, error);
+                                            setMessages(prev => prev.filter(msg => msg.messageId !== tempId));
+                                        }
+                                    }
+                                    
+                                    toast.success(`${selectedMedia.length} files sent individually!`);
+                                    clearMediaPreview();
+                                    fetchConversations();
+                                    setIsUploading(false);
+                                }}
+                                disabled={isUploading}
+                                className="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white transition-colors"
+                            >
+                                <Grid3X3 className="w-5 h-5" />
+                                Send Without Grouping
+                            </button>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>

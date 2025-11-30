@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useToast } from "../context/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, Send, Paperclip, Image as ImageIcon, BarChart3, X, Smile, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, Send, Paperclip, Image as ImageIcon, BarChart3, X, Smile, Plus, MoreVertical, Edit2, Trash2, Eye, Grid3X3, ChevronLeft, ChevronRight, Layers } from "lucide-react";
 import { SafeImage } from "../components/SafeImage";
 import ConfirmModal from "../components/ConfirmModal";
 import ChannelInfo from "../components/ChannelInfo";
@@ -33,6 +33,9 @@ const GroupDetail = () => {
     const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
     const [showChannelInfo, setShowChannelInfo] = useState(false);
     const [fullScreenImage, setFullScreenImage] = useState(null);
+    const [showMediaOptionsMenu, setShowMediaOptionsMenu] = useState(false);
+    const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
+    const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const toast = useToast();
@@ -382,25 +385,25 @@ const GroupDetail = () => {
                                                     </div>
                                                 ) : (
                                                     // 3+ images - flexible grid with natural aspect ratios
-                                                    <div className="flex flex-col gap-1">
+                                                    <div className="flex flex-col gap-2">
                                                         {/* First row - main image */}
                                                         <div className="flex justify-center">
                                                             {post.media[0].type === 'video' ? (
-                                                                <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[280px] rounded-lg" />
+                                                                <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[380px] rounded-lg" />
                                                             ) : post.media[0].type === 'image' ? (
-                                                                <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="max-w-full max-h-[280px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
+                                                                <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="max-w-full max-h-[380px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
                                                             ) : (
                                                                 <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
                                                             )}
                                                         </div>
                                                         {/* Remaining images in rows of 2-3 */}
-                                                        <div className="flex flex-wrap gap-1 justify-center">
+                                                        <div className="flex flex-wrap gap-2 justify-center">
                                                             {post.media.slice(1).map((mediaItem, idx) => (
                                                                 <div key={idx} className="flex justify-center" style={{ maxWidth: post.media.length <= 3 ? '48%' : '32%' }}>
                                                                     {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[180px] rounded-lg" />
+                                                                        <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[240px] rounded-lg" />
                                                                     ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[180px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
+                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[240px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
                                                                     ) : (
                                                                         <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
                                                                     )}
@@ -582,36 +585,164 @@ const GroupDetail = () => {
             {/* Input Area (only for owner/admins) - Pinned at bottom above navigation */}
             {canPost && (
                 <div className="dark:bg-[#202c33] bg-white px-3 py-2 border-t dark:border-[#2a3942] border-gray-200 flex-shrink-0 mb-[72px] md:mb-0">
-                    {/* Media Previews */}
+                    {/* Telegram-style Media Previews with Numbers */}
                     {mediaPreviews.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-2">
-                            {mediaPreviews.map((preview, index) => (
-                                <div key={index} className="relative">
-                                    {preview.type === 'image' ? (
-                                        <img src={preview.url} alt="Preview" className="h-20 rounded-lg" />
-                                    ) : preview.type === 'video' ? (
-                                        <video src={preview.url} className="h-20 rounded-lg" />
-                                    ) : (
-                                        <div className="px-3 py-2 dark:bg-[#2a3942] bg-gray-200 rounded-lg flex items-center gap-2 h-20">
-                                            <Paperclip className="w-4 h-4" />
-                                            <span className="text-xs dark:text-white text-gray-900 max-w-[100px] truncate">
-                                                {preview.name}
-                                            </span>
-                                        </div>
-                                    )}
+                        <div className="mb-3">
+                            {/* Header with count and three dots menu */}
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {mediaPreviews.length} {mediaPreviews.length === 1 ? 'photo' : 'photos'} selected
+                                </span>
+                                
+                                {/* Right side - Three dots menu and Close button */}
+                                <div className="relative flex items-center gap-2">
+                                    {/* Three dots button */}
                                     <button
-                                        onClick={() => {
-                                            const newMedia = selectedMedia.filter((_, i) => i !== index);
-                                            const newPreviews = mediaPreviews.filter((_, i) => i !== index);
-                                            setSelectedMedia(newMedia);
-                                            setMediaPreviews(newPreviews);
-                                        }}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
+                                        type="button"
+                                        onClick={() => setShowMediaOptionsMenu(!showMediaOptionsMenu)}
+                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#2a3942] rounded-full transition-colors"
                                     >
-                                        <X className="w-3 h-3" />
+                                        <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                    </button>
+                                    
+                                    {/* Telegram-style Dropdown Menu */}
+                                    <AnimatePresence>
+                                        {showMediaOptionsMenu && (
+                                            <>
+                                                <div 
+                                                    className="fixed inset-0 z-40"
+                                                    onClick={() => setShowMediaOptionsMenu(false)}
+                                                />
+                                                <motion.div
+                                                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute top-full right-0 mt-1 bg-white dark:bg-[#202c33] rounded-xl shadow-2xl border dark:border-[#2a3942] border-gray-200 overflow-hidden z-50 min-w-[220px]"
+                                                >
+                                                    {/* Show Preview Option */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setShowMediaOptionsMenu(false);
+                                                            setCurrentPreviewIndex(0);
+                                                            setShowMediaPreviewModal(true);
+                                                        }}
+                                                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                    >
+                                                        <Eye className="w-5 h-5 text-[#3390ec]" />
+                                                        <span className="text-gray-900 dark:text-white font-medium">Show preview</span>
+                                                    </button>
+                                                    
+                                                    {/* Send Without Grouping Option */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            setShowMediaOptionsMenu(false);
+                                                            if (selectedMedia.length === 0) return;
+                                                            setIsSending(true);
+                                                            
+                                                            // Send each file individually
+                                                            for (let i = 0; i < selectedMedia.length; i++) {
+                                                                const file = selectedMedia[i];
+                                                                try {
+                                                                    const token = localStorage.getItem("token");
+                                                                    const formData = new FormData();
+                                                                    formData.append("content", "");
+                                                                    formData.append("media", file);
+                                                                    
+                                                                    await axios.post(`/api/groups/${id}/posts`, formData, {
+                                                                        headers: { 
+                                                                            Authorization: `Bearer ${token}`,
+                                                                            "Content-Type": "multipart/form-data"
+                                                                        }
+                                                                    });
+                                                                } catch (error) {
+                                                                    console.error(`Error sending file ${i + 1}:`, error);
+                                                                }
+                                                            }
+                                                            
+                                                            toast.success(`${selectedMedia.length} files sent individually!`);
+                                                            setSelectedMedia([]);
+                                                            setMediaPreviews([]);
+                                                            setNewPost("");
+                                                            fetchGroup();
+                                                            setIsSending(false);
+                                                        }}
+                                                        disabled={isSending}
+                                                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-[#2a3942] transition-colors"
+                                                    >
+                                                        <Grid3X3 className="w-5 h-5 text-[#3390ec]" />
+                                                        <span className="text-gray-900 dark:text-white font-medium">Send without grouping</span>
+                                                    </button>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
+                                    
+                                    {/* Close button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedMedia([]);
+                                            setMediaPreviews([]);
+                                        }}
+                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#2a3942] rounded-full transition-colors"
+                                    >
+                                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                                     </button>
                                 </div>
-                            ))}
+                            </div>
+                            
+                            {/* Photos Grid with Numbers */}
+                            <div className="flex flex-wrap gap-2">
+                                {mediaPreviews.map((preview, index) => (
+                                    <div key={index} className="relative group">
+                                        {preview.type === 'image' ? (
+                                            <img 
+                                                src={preview.url} 
+                                                alt={`Preview ${index + 1}`} 
+                                                className="h-16 w-16 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                onClick={() => {
+                                                    setCurrentPreviewIndex(index);
+                                                    setShowMediaPreviewModal(true);
+                                                }}
+                                            />
+                                        ) : preview.type === 'video' ? (
+                                            <video src={preview.url} className="h-16 w-16 object-cover rounded-lg" />
+                                        ) : (
+                                            <div className="px-3 py-2 dark:bg-[#2a3942] bg-gray-200 rounded-lg flex items-center gap-2 h-16 w-16">
+                                                <Paperclip className="w-4 h-4" />
+                                            </div>
+                                        )}
+                                        {/* Number Badge - Telegram Style */}
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#3390ec] rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                            {index + 1}
+                                        </div>
+                                        {/* Remove button on hover */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newMedia = selectedMedia.filter((_, i) => i !== index);
+                                                const newPreviews = mediaPreviews.filter((_, i) => i !== index);
+                                                setSelectedMedia(newMedia);
+                                                setMediaPreviews(newPreviews);
+                                            }}
+                                            className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {/* Add more button */}
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="h-16 w-16 rounded-lg border-2 border-dashed dark:border-gray-600 border-gray-300 flex items-center justify-center dark:text-gray-400 text-gray-500 hover:dark:border-gray-500 hover:border-gray-400 transition-colors"
+                                >
+                                    <span className="text-2xl">+</span>
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -892,6 +1023,234 @@ const GroupDetail = () => {
                             className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            
+            {/* Telegram-style Media Preview Modal - Shows how it will look after sending */}
+            <AnimatePresence>
+                {showMediaPreviewModal && mediaPreviews.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/95 z-[300] flex flex-col"
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-black/50">
+                            <button
+                                onClick={() => setShowMediaPreviewModal(false)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <ArrowLeft className="w-6 h-6 text-white" />
+                            </button>
+                            <div className="text-white text-center">
+                                <span className="font-medium">Preview</span>
+                                <span className="text-white/60"> - {mediaPreviews.length} {mediaPreviews.length === 1 ? 'photo' : 'photos'}</span>
+                            </div>
+                            <button
+                                onClick={() => setShowMediaPreviewModal(false)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <X className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
+                        
+                        {/* Main Preview Area - Shows exactly like channel upload (big photo + small row) */}
+                        <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+                            <div className="max-w-sm w-full">
+                                {/* Message bubble preview - Telegram style grouped layout */}
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="bg-gradient-to-br from-primary/80 to-secondary/80 rounded-2xl rounded-br-none p-1.5 shadow-lg"
+                                >
+                                    {mediaPreviews.length === 1 ? (
+                                        /* Single image - full size */
+                                        <div className="rounded-xl overflow-hidden">
+                                            {mediaPreviews[0].type === 'video' ? (
+                                                <video src={mediaPreviews[0].url} className="w-full max-h-[300px] object-contain" />
+                                            ) : (
+                                                <img src={mediaPreviews[0].url} alt="Preview" className="w-full max-h-[300px] object-contain" />
+                                            )}
+                                        </div>
+                                    ) : mediaPreviews.length === 2 ? (
+                                        /* 2 images - side by side */
+                                        <div className="grid grid-cols-2 gap-0.5 rounded-xl overflow-hidden">
+                                            {mediaPreviews.map((preview, idx) => (
+                                                <div key={idx} className="aspect-square">
+                                                    {preview.type === 'video' ? (
+                                                        <video src={preview.url} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <img src={preview.url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        /* 3+ images - Big one on top, small ones in row below */
+                                        <div className="rounded-xl overflow-hidden">
+                                            {/* Main large image */}
+                                            <div className="w-full aspect-[4/3] mb-0.5">
+                                                {mediaPreviews[0].type === 'video' ? (
+                                                    <video src={mediaPreviews[0].url} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <img src={mediaPreviews[0].url} alt="Preview 1" className="w-full h-full object-cover" />
+                                                )}
+                                            </div>
+                                            {/* Small images row */}
+                                            <div className={`grid gap-0.5 ${
+                                                mediaPreviews.length === 3 ? 'grid-cols-2' :
+                                                mediaPreviews.length === 4 ? 'grid-cols-3' :
+                                                mediaPreviews.length >= 5 ? 'grid-cols-4' : 'grid-cols-3'
+                                            }`}>
+                                                {mediaPreviews.slice(1, 5).map((preview, idx) => {
+                                                    const isLast = idx === 3 && mediaPreviews.length > 5;
+                                                    return (
+                                                        <div key={idx + 1} className="aspect-square relative">
+                                                            {preview.type === 'video' ? (
+                                                                <video src={preview.url} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <img src={preview.url} alt={`Preview ${idx + 2}`} className="w-full h-full object-cover" />
+                                                            )}
+                                                            {isLast && (
+                                                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
+                                                                    +{mediaPreviews.length - 5}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Time stamp */}
+                                    <div className="flex items-center justify-end gap-1.5 mt-1 px-1">
+                                        <span className="text-[10px] text-white/70">
+                                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                                
+                                {/* Label */}
+                                <p className="text-white/60 text-center text-sm mt-4">
+                                    This is how your {mediaPreviews.length} {mediaPreviews.length === 1 ? 'photo' : 'photos'} will appear
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Thumbnail Strip */}
+                        <div className="px-4 py-3 bg-black/50">
+                            <div className="flex gap-2 justify-center overflow-x-auto pb-2">
+                                {mediaPreviews.map((preview, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="relative flex-shrink-0 rounded-lg overflow-hidden"
+                                    >
+                                        {preview.type === 'image' ? (
+                                            <img
+                                                src={preview.url}
+                                                alt={`Thumb ${idx + 1}`}
+                                                className="w-14 h-14 object-cover"
+                                            />
+                                        ) : (
+                                            <video
+                                                src={preview.url}
+                                                className="w-14 h-14 object-cover"
+                                            />
+                                        )}
+                                        {/* Number Badge */}
+                                        <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-[#3390ec] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                                            {idx + 1}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Bottom Actions */}
+                        <div className="px-4 py-4 bg-black/80 flex gap-3">
+                            <button
+                                onClick={async () => {
+                                    setShowMediaPreviewModal(false);
+                                    // Submit the form (send as group)
+                                    if (selectedMedia.length === 0) return;
+                                    setIsSending(true);
+                                    try {
+                                        const token = localStorage.getItem("token");
+                                        const formData = new FormData();
+                                        formData.append("content", newPost);
+                                        selectedMedia.forEach((file) => {
+                                            formData.append("media", file);
+                                        });
+                                        await axios.post(`/api/groups/${id}/posts`, formData, {
+                                            headers: { 
+                                                Authorization: `Bearer ${token}`,
+                                                "Content-Type": "multipart/form-data"
+                                            }
+                                        });
+                                        setNewPost("");
+                                        setSelectedMedia([]);
+                                        setMediaPreviews([]);
+                                        fetchGroup();
+                                        toast.success("Media sent!");
+                                    } catch (error) {
+                                        console.error("Error sending:", error);
+                                        toast.error("Failed to send");
+                                    } finally {
+                                        setIsSending(false);
+                                    }
+                                }}
+                                disabled={isSending}
+                                className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 ${
+                                    isSending 
+                                        ? 'bg-[#3390ec]/50 cursor-not-allowed' 
+                                        : 'bg-[#3390ec] hover:bg-[#2b7fd4]'
+                                } text-white transition-colors`}
+                            >
+                                <Layers className="w-5 h-5" />
+                                {isSending ? 'Sending...' : `Send as Group (${mediaPreviews.length})`}
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setShowMediaPreviewModal(false);
+                                    if (selectedMedia.length === 0) return;
+                                    setIsSending(true);
+                                    
+                                    for (let i = 0; i < selectedMedia.length; i++) {
+                                        const file = selectedMedia[i];
+                                        try {
+                                            const token = localStorage.getItem("token");
+                                            const formData = new FormData();
+                                            formData.append("content", "");
+                                            formData.append("media", file);
+                                            
+                                            await axios.post(`/api/groups/${id}/posts`, formData, {
+                                                headers: { 
+                                                    Authorization: `Bearer ${token}`,
+                                                    "Content-Type": "multipart/form-data"
+                                                }
+                                            });
+                                        } catch (error) {
+                                            console.error(`Error sending file ${i + 1}:`, error);
+                                        }
+                                    }
+                                    
+                                    toast.success(`${selectedMedia.length} files sent individually!`);
+                                    setSelectedMedia([]);
+                                    setMediaPreviews([]);
+                                    setNewPost("");
+                                    fetchGroup();
+                                    setIsSending(false);
+                                }}
+                                disabled={isSending}
+                                className="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white transition-colors"
+                            >
+                                <Grid3X3 className="w-5 h-5" />
+                                Send Without Grouping
+                            </button>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
