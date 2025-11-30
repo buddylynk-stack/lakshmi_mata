@@ -10,6 +10,7 @@ import { SafeAvatar } from "../components/SafeImage";
 import CallModal from "../components/CallModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { AvatarWithStatus, OnlineBadge } from "../components/OnlineIndicator";
+import HamsterLoader from "../components/HamsterLoader";
 
 const Chat = () => {
     const { user } = useAuth();
@@ -509,17 +510,9 @@ const Chat = () => {
                         {/* Conversations List */}
                         <div className="flex-1 overflow-y-auto">
                             {loading ? (
-                                // Loading Skeleton
-                                <div className="space-y-2 p-2">
-                                    {[1, 2, 3, 4, 5].map((i) => (
-                                        <div key={i} className="p-3 flex items-center gap-3 animate-pulse">
-                                            <div className="w-12 h-12 bg-gray-300 dark:bg-gray-700 rounded-full" />
-                                            <div className="flex-1">
-                                                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-32 mb-2" />
-                                                <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-48" />
-                                            </div>
-                                        </div>
-                                    ))}
+                                // Hamster Loading Animation
+                                <div className="flex justify-center items-center py-12">
+                                    <HamsterLoader size="medium" text="Loading chats..." />
                                 </div>
                             ) : filteredConversations.length === 0 ? (
                                 <div className="p-8 text-center dark:text-[#8696a0] text-gray-600">

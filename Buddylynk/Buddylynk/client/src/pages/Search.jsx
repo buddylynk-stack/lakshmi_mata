@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { SafeAvatar } from "../components/SafeImage";
+import HamsterLoader from "../components/HamsterLoader";
 
 const Search = () => {
     const { user } = useAuth();
@@ -238,9 +239,8 @@ const Search = () => {
 
                         {/* Search Results */}
                         {loading ? (
-                            <div className="glass-panel p-12 text-center">
-                                <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
-                                <p className="text-theme-secondary">Searching...</p>
+                            <div className="glass-panel p-12 flex justify-center">
+                                <HamsterLoader size="medium" text="Searching..." />
                             </div>
                         ) : (
                             <motion.div 

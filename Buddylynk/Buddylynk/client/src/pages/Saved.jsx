@@ -5,6 +5,7 @@ import { useSocket } from "../context/SocketContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bookmark, Heart, MessageCircle, Play, X, BookmarkX } from "lucide-react";
 import { SafeAvatar, SafeImage } from "../components/SafeImage";
+import HamsterLoader from "../components/HamsterLoader";
 import axios from "axios";
 
 const Saved = () => {
@@ -144,10 +145,8 @@ const Saved = () => {
 
                 {/* Loading State */}
                 {loading ? (
-                    <div className="grid grid-cols-3 gap-1">
-                        {[...Array(9)].map((_, i) => (
-                            <div key={i} className="aspect-square skeleton" />
-                        ))}
+                    <div className="flex justify-center items-center py-16">
+                        <HamsterLoader size="medium" text="Loading saved posts..." />
                     </div>
                 ) : savedPosts.length === 0 ? (
                     /* Empty State */

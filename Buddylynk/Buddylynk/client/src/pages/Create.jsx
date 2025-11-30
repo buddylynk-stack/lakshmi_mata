@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useRealTimeGroups } from "../hooks/useRealTimeGroups";
 import { SafeImage } from "../components/SafeImage";
+import HamsterLoader from "../components/HamsterLoader";
 import axios from "axios";
 
 const Create = () => {
@@ -254,8 +255,8 @@ const Create = () => {
             {/* Channel List - Telegram Style */}
             <div className="flex-1 overflow-y-auto pb-24">
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <Loader2 className="w-8 h-8 text-[#00a884] animate-spin" />
+                    <div className="flex items-center justify-center py-16">
+                        <HamsterLoader size="medium" text="Loading channels..." />
                     </div>
                 ) : filteredGroups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 px-4">
