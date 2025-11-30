@@ -110,11 +110,19 @@ jobs:
             fi
             echo "✅ Redis is running"
             
-            # Always recreate .env file with environment variables
+            # Setup environment variables from persistent storage
             echo "📝 Setting up environment variables..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            echo "Creating .env file..."
-            cat > .env << ENDOFFILE
+            
+            # Check if master .env exists in home directory
+            if [ -f ~/.env.buddylynk ]; then
+                echo "✅ Found master .env file, copying to project..."
+                cp ~/.env.buddylynk .env
+                echo "✅ .env file copied from ~/.env.buddylynk"
+            else
+                echo "⚠️  Master .env not found at ~/.env.buddylynk"
+                echo "Creating .env from GitHub secrets..."
+                cat > .env << ENDOFFILE
             AWS_REGION=${AWS_REGION}
             AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
             AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -126,11 +134,12 @@ jobs:
             REDIS_HOST=localhost
             REDIS_PORT=6379
             ENDOFFILE
+                
+                # Remove leading whitespace
+                sed -i 's/^[[:space:]]*//' .env
+                echo "✅ .env file created from secrets"
+            fi
             
-            # Remove leading whitespace from .env file
-            sed -i 's/^[[:space:]]*//' .env
-            
-            echo "✅ .env file created"
             echo "🔍 Verifying .env contents:"
             cat .env
             
