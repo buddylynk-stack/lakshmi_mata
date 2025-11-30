@@ -82,6 +82,15 @@ jobs:
             npm install --legacy-peer-deps
             npm run build
             
+            # Check and start Redis
+            echo "🔴 Checking Redis status..."
+            if ! systemctl is-active --quiet redis-server; then
+                echo "Starting Redis..."
+                sudo systemctl start redis-server
+                sudo systemctl enable redis-server
+            fi
+            echo "✅ Redis is running"
+            
             # Ensure .env file exists with environment variables
             echo "📝 Setting up environment variables..."
             cd ~/lakshmi_mata/Buddylynk/Buddylynk/server
@@ -103,6 +112,10 @@ jobs:
             # Server Configuration
             PORT=5000
             JWT_SECRET=${JWT_SECRET}
+            
+            # Redis Configuration
+            REDIS_HOST=localhost
+            REDIS_PORT=6379
             EOF
                 echo "✅ .env file created"
             else

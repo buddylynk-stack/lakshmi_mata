@@ -48,6 +48,14 @@ else
     echo "❌ Server is NOT listening on port 5000"
 fi
 
+# Check Redis status
+if systemctl is-active --quiet redis-server; then
+    echo "✅ Redis is running"
+    redis-cli ping > /dev/null 2>&1 && echo "✅ Redis is responding to PING" || echo "❌ Redis not responding"
+else
+    echo "❌ Redis is not running"
+fi
+
 # Check Nginx status
 if sudo systemctl is-active --quiet nginx; then
     echo "✅ Nginx is running"
