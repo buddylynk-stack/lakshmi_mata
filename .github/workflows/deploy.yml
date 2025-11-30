@@ -41,7 +41,7 @@ jobs:
             
             # Update backend
             echo "🔧 Updating backend..."
-            cd Buddylynk_P2.6/Buddylynk/server
+            cd Buddylynk/Buddylynk/server
             npm install --production --legacy-peer-deps
             pm2 restart buddylynk-server || pm2 start index.js --name buddylynk-server
             
