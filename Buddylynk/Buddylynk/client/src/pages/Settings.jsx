@@ -3,9 +3,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Moon, Sun, UserX, X, Lock, Eye, EyeOff, Shield, Palette, Bell, ChevronRight, Check } from "lucide-react";
+import { Moon, Sun, UserX, Lock, Eye, EyeOff, Shield, Palette, ChevronRight, Check, AlertTriangle } from "lucide-react";
 import { SafeAvatar } from "../components/SafeImage";
-import { containerVariants, itemVariants, scaleVariants, fastTransition } from "../utils/animations";
 import axios from "axios";
 
 const Settings = () => {
@@ -22,6 +21,9 @@ const Settings = () => {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [passwordError, setPasswordError] = useState("");
     const [passwordSuccess, setPasswordSuccess] = useState("");
+    const [sensitiveContent, setSensitiveContent] = useState(() => {
+        return localStorage.getItem("sensitiveContentSetting") || "blur";
+    });
 
     useEffect(() => {
         fetchBlockedUsers();
@@ -179,6 +181,74 @@ const Settings = () => {
                             </div>
                             <ChevronRight className="w-5 h-5 text-theme-secondary group-hover:translate-x-1 transition-transform" />
                         </motion.button>
+                    </motion.div>
+
+                    {/* Sensitive Content Section */}
+                    <motion.div variants={itemVariants} className="glass-panel p-6">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-xl bg-orange-500/20">
+                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                            </div>
+                            <h2 className="text-xl font-bold dark:text-white text-gray-900">Sensitive Content</h2>
+                        </div>
+
+                        <p className="text-sm text-theme-secondary mb-4">
+                            Choose how you want to handle potentially sensitive content in your feed
+                        </p>
+
+                        <div className="space-y-3">
+                            {[
+                                { value: "show", label: "Show", description: "Always show sensitive content", icon: Eye },
+                                { value: "blur", label: "Blur", description: "Blur sensitive content until tapped", icon: EyeOff },
+                                { value: "hide", label: "Hide", description: "Hide all sensitive content", icon: Shield }
+                            ].map((option) => (
+                                <motion.button
+                                    key={option.value}
+                                    onClick={() => {
+                                        setSensitiveContent(option.value);
+                                        localStorage.setItem("sensitiveContentSetting", option.value);
+                                    }}
+                                    className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
+                                        sensitiveContent === option.value
+                                            ? "dark:bg-primary/20 bg-primary/10 border-2 border-primary"
+                                            : "dark:bg-white/5 bg-gray-50 dark:hover:bg-white/10 hover:bg-gray-100 border-2 border-transparent"
+                                    }`}
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-xl ${
+                                            sensitiveContent === option.value
+                                                ? "bg-primary/30"
+                                                : "dark:bg-white/10 bg-gray-200"
+                                        }`}>
+                                            <option.icon className={`w-5 h-5 ${
+                                                sensitiveContent === option.value
+                                                    ? "text-primary"
+                                                    : "text-theme-secondary"
+                                            }`} />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className={`font-medium ${
+                                                sensitiveContent === option.value
+                                                    ? "text-primary"
+                                                    : "dark:text-white text-gray-900"
+                                            }`}>{option.label}</p>
+                                            <p className="text-sm text-theme-secondary">{option.description}</p>
+                                        </div>
+                                    </div>
+                                    {sensitiveContent === option.value && (
+                                        <motion.div
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            className="w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                                        >
+                                            <Check className="w-4 h-4 text-white" />
+                                        </motion.div>
+                                    )}
+                                </motion.button>
+                            ))}
+                        </div>
                     </motion.div>
 
                     {/* Security Section */}
@@ -394,7 +464,7 @@ const Settings = () => {
                     {/* Version Section */}
                     <motion.div variants={itemVariants} className="text-center py-6">
                         <p className="text-theme-secondary text-sm">Version</p>
-                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.15fixero</p>
+                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.17</p>
                     </motion.div>
                 </motion.div>
             </div>
