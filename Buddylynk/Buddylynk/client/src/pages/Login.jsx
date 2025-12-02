@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
 import { GoogleLogin } from '@react-oauth/google';
+import { useToast } from "../context/ToastContext";
+import { scaleVariants, fadeVariants, fastTransition } from "../utils/animations";
 
 const Login = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -11,12 +13,21 @@ const Login = () => {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const { login, signup } = useAuth();
     const navigate = useNavigate();
+    const toast = useToast();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+
+        // Check if terms are accepted for signup
+        if (!isLogin && !acceptedTerms) {
+            toast.error("Please accept the Terms and Conditions to create an account", 4000);
+            return;
+        }
+
         setLoading(true);
         
         let res;
@@ -29,9 +40,11 @@ const Login = () => {
         setLoading(false);
         
         if (res.success) {
-            if (res.isNewUser) {
+            if (res.isNewUser || !isLogin) {
+                toast.success("Welcome buddy! Glad to see you 🎉", 4000);
                 navigate("/complete-profile");
             } else {
+                toast.success("Welcome back buddy! 👋", 4000);
                 navigate("/");
             }
         } else {
@@ -170,13 +183,58 @@ const Login = () => {
                         </button>
                     </motion.div>
 
+                    {/* Terms and Conditions Checkbox - Only for Signup */}
+                    <AnimatePresence mode="wait">
+                        {!isLogin && (
+                            <motion.div
+                                key="terms"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-start gap-3"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="terms"
+                                    checked={acceptedTerms}
+                                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                    className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                                    required
+                                />
+                                <label htmlFor="terms" className="text-sm dark:text-gray-300 text-gray-600 cursor-pointer">
+                                    I have read and agree to the{" "}
+                                    <a 
+                                        href="/terms-of-service.html" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline font-medium"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Terms and Conditions
+                                    </a>
+                                    {" "}and{" "}
+                                    <a 
+                                        href="/privacy-policy.html" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline font-medium"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Privacy Policy
+                                    </a>
+                                </label>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <motion.button 
                         type="submit" 
                         className="btn-primary w-full flex items-center justify-center gap-2 group h-12"
                         variants={itemVariants}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        disabled={loading}
+                        disabled={loading || (!isLogin && !acceptedTerms)}
                     >
                         {loading ? (
                             <>
@@ -230,8 +288,10 @@ const Login = () => {
                                     localStorage.setItem('token', data.token);
                                     localStorage.setItem('user', JSON.stringify(data.user));
                                     if (data.isNewUser) {
+                                        toast.success("Welcome buddy! Glad to see you 🎉", 4000);
                                         navigate('/complete-profile');
                                     } else {
+                                        toast.success("Welcome back buddy! 👋", 4000);
                                         navigate('/');
                                     }
                                     window.location.reload();

@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useRealTimeGroups } from "../hooks/useRealTimeGroups";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, X, Image as ImageIcon, Loader2, Search, Lock, Globe } from "lucide-react";
+import { Users, Plus, X, Image as ImageIcon, Loader2, Search, Lock, Globe, Crown } from "lucide-react";
 import { SafeImage } from "../components/SafeImage";
 import axios from "axios";
 
@@ -306,6 +306,7 @@ const Groups = () => {
                     >
                         {filteredGroups.map((group) => {
                             const isMember = group.members?.includes(user.userId);
+                            const isCreator = group.creatorId === user.userId;
                             
                             return (
                                 <motion.div
@@ -346,8 +347,16 @@ const Groups = () => {
                                             )}
                                         </div>
                                         
-                                        {/* Member Badge */}
-                                        {isMember && (
+                                        {/* Creator Badge - Shows if user is the creator */}
+                                        {isCreator && (
+                                            <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-yellow-500 to-orange-500 text-white flex items-center gap-1.5 shadow-lg">
+                                                <Crown className="w-3.5 h-3.5" />
+                                                <span>Creator</span>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Member Badge - Only show if not creator */}
+                                        {isMember && !isCreator && (
                                             <div className="absolute top-3 right-3 badge-success">
                                                 Member
                                             </div>

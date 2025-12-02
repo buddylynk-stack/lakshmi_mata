@@ -113,34 +113,78 @@ const ChannelInfo = ({
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-y-0 right-0 w-full md:w-[420px] md:ml-72 bg-[#111b21] z-50 flex flex-col overflow-hidden"
+                        className="fixed inset-y-0 right-0 w-full md:w-[420px] md:ml-72 dark:bg-[#111b21] bg-gray-50 z-50 flex flex-col overflow-hidden"
                     >
                         {/* Header */}
-                        <div className="bg-[#202c33] px-4 py-3 flex items-center gap-4">
+                        <div className="dark:bg-[#202c33] bg-white px-4 py-3 flex items-center gap-4 border-b dark:border-transparent border-gray-200">
                             <button
                                 onClick={onClose}
-                                className="text-[#aebac1] hover:text-white p-1 transition-colors"
+                                className="dark:text-[#aebac1] text-gray-600 dark:hover:text-white hover:text-gray-900 p-1 transition-colors"
                             >
                                 <ArrowLeft className="w-6 h-6" />
                             </button>
-                            <h2 className="text-white text-lg font-medium flex-1">Channel info</h2>
+                            <h2 className="dark:text-white text-gray-900 text-lg font-medium flex-1">Channel info</h2>
                             
                             {isCreator && (
                                 <button
                                     onClick={() => setShowEditPage(true)}
-                                    className="text-[#aebac1] hover:text-white p-2 transition-colors"
+                                    className="dark:text-[#aebac1] text-gray-600 dark:hover:text-white hover:text-gray-900 p-2 transition-colors"
                                 >
                                     <Edit2 className="w-5 h-5" />
                                 </button>
+                            )}
+                            
+                            {/* Three dots menu for non-creator members */}
+                            {isMember && !isCreator && (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                        className="dark:text-[#aebac1] text-gray-600 dark:hover:text-white hover:text-gray-900 p-2 transition-colors"
+                                    >
+                                        <MoreVertical className="w-5 h-5" />
+                                    </button>
+                                    
+                                    {/* Dropdown Menu */}
+                                    <AnimatePresence>
+                                        {showMoreMenu && (
+                                            <>
+                                                <motion.div
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                    onClick={() => setShowMoreMenu(false)}
+                                                    className="fixed inset-0 z-10"
+                                                />
+                                                <motion.div
+                                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    className="absolute right-0 top-full mt-1 dark:bg-[#233138] bg-white rounded-lg shadow-xl z-20 min-w-[180px] overflow-hidden border dark:border-transparent border-gray-200"
+                                                >
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowMoreMenu(false);
+                                                            setShowLeaveConfirm(true);
+                                                        }}
+                                                        className="w-full flex items-center gap-3 px-4 py-3 text-red-500 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#182229] transition-colors"
+                                                    >
+                                                        <LogOut className="w-5 h-5" />
+                                                        <span className="text-sm">Leave channel</span>
+                                                    </button>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             )}
                         </div>
 
                         {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto">
                             {/* Profile Section */}
-                            <div className="bg-[#111b21] px-4 py-8 flex flex-col items-center">
+                            <div className="dark:bg-[#111b21] bg-gray-50 px-4 py-8 flex flex-col items-center">
                                 {/* Large Profile Photo */}
-                                <div className="w-32 h-32 rounded-full overflow-hidden mb-4 ring-4 ring-[#2a3942]">
+                                <div className="w-32 h-32 rounded-full overflow-hidden mb-4 ring-4 dark:ring-[#2a3942] ring-gray-200">
                                     {group?.coverImage ? (
                                         <SafeImage
                                             src={group.coverImage}
@@ -155,38 +199,38 @@ const ChannelInfo = ({
                                 </div>
 
                                 {/* Channel Name */}
-                                <h1 className="text-2xl font-semibold text-white mb-1 text-center">
+                                <h1 className="text-2xl font-semibold dark:text-white text-gray-900 mb-1 text-center">
                                     {group?.name}
                                 </h1>
 
                                 {/* Subtitle */}
-                                <p className="text-[#8696a0] text-sm">
+                                <p className="dark:text-[#8696a0] text-gray-500 text-sm">
                                     {group?.type === 'channel' ? 'Public channel' : 'Group'} · {group?.memberCount || 0} {(group?.memberCount || 0) === 1 ? 'subscriber' : 'subscribers'}
                                 </p>
                             </div>
 
                             {/* Divider */}
-                            <div className="h-2 bg-[#0b141a]" />
+                            <div className="h-2 dark:bg-[#0b141a] bg-gray-100" />
 
                             {/* Description Section */}
                             {group?.description && (
                                 <>
-                                    <div className="bg-[#111b21] px-4 py-4">
-                                        <p className="text-white text-sm leading-relaxed">
+                                    <div className="dark:bg-[#111b21] bg-white px-4 py-4">
+                                        <p className="dark:text-white text-gray-900 text-sm leading-relaxed">
                                             {group.description}
                                         </p>
-                                        <p className="text-[#8696a0] text-xs mt-2">
+                                        <p className="dark:text-[#8696a0] text-gray-500 text-xs mt-2">
                                             Created by {group.creatorName || 'Unknown'}
                                         </p>
                                     </div>
-                                    <div className="h-2 bg-[#0b141a]" />
+                                    <div className="h-2 dark:bg-[#0b141a] bg-gray-100" />
                                 </>
                             )}
 
                             {/* Info Section */}
-                            <div className="bg-[#111b21]">
+                            <div className="dark:bg-[#111b21] bg-white">
                                 <div className="px-4 py-3">
-                                    <h3 className="text-[#8696a0] text-sm font-medium uppercase tracking-wide">
+                                    <h3 className="dark:text-[#8696a0] text-gray-500 text-sm font-medium uppercase tracking-wide">
                                         Info
                                     </h3>
                                 </div>
@@ -195,20 +239,20 @@ const ChannelInfo = ({
                                 {canManageInviteLink && (
                                     <button
                                         onClick={() => setShowInviteLinks(true)}
-                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
+                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#202c33] transition-colors"
                                     >
                                         <div className="w-10 h-10 rounded-full bg-[#00a884]/20 flex items-center justify-center">
                                             <LinkIcon className="w-5 h-5 text-[#00a884]" />
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <p className="text-white text-sm">Invite link</p>
-                                            <p className="text-[#8696a0] text-xs truncate max-w-[250px]">
+                                            <p className="dark:text-white text-gray-900 text-sm">Invite link</p>
+                                            <p className="dark:text-[#8696a0] text-gray-500 text-xs truncate max-w-[250px]">
                                                 {inviteLink.replace(window.location.origin, 'buddylynk.com')}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <QrCode className="w-5 h-5 text-[#8696a0]" />
-                                            <Copy className="w-5 h-5 text-[#8696a0]" />
+                                            <QrCode className="w-5 h-5 dark:text-[#8696a0] text-gray-400" />
+                                            <Copy className="w-5 h-5 dark:text-[#8696a0] text-gray-400" />
                                         </div>
                                     </button>
                                 )}
@@ -216,7 +260,7 @@ const ChannelInfo = ({
                                 {/* Notifications Toggle */}
                                 <button
                                     onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-                                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
+                                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#202c33] transition-colors"
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                                         notificationsEnabled ? 'bg-[#00a884]/20' : 'bg-[#8696a0]/20'
@@ -228,8 +272,8 @@ const ChannelInfo = ({
                                         )}
                                     </div>
                                     <div className="flex-1 text-left">
-                                        <p className="text-white text-sm">Notifications</p>
-                                        <p className="text-[#8696a0] text-xs">
+                                        <p className="dark:text-white text-gray-900 text-sm">Notifications</p>
+                                        <p className="dark:text-[#8696a0] text-gray-500 text-xs">
                                             {notificationsEnabled ? 'On' : 'Off'}
                                         </p>
                                     </div>
@@ -247,12 +291,12 @@ const ChannelInfo = ({
                             </div>
 
                             {/* Divider */}
-                            <div className="h-2 bg-[#0b141a]" />
+                            <div className="h-2 dark:bg-[#0b141a] bg-gray-100" />
 
                             {/* Members Section */}
-                            <div className="bg-[#111b21]">
+                            <div className="dark:bg-[#111b21] bg-white">
                                 <div className="px-4 py-3">
-                                    <h3 className="text-[#8696a0] text-sm font-medium uppercase tracking-wide">
+                                    <h3 className="dark:text-[#8696a0] text-gray-500 text-sm font-medium uppercase tracking-wide">
                                         Members
                                     </h3>
                                 </div>
@@ -261,18 +305,18 @@ const ChannelInfo = ({
                                 {(isCreator || isAdmin) ? (
                                     <button 
                                         onClick={() => setShowSubscribers(true)}
-                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
+                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#202c33] transition-colors"
                                     >
                                         <div className="w-10 h-10 rounded-full bg-[#00a884]/20 flex items-center justify-center">
                                             <Users className="w-5 h-5 text-[#00a884]" />
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <p className="text-white text-sm">Subscribers</p>
-                                            <p className="text-[#8696a0] text-xs">
+                                            <p className="dark:text-white text-gray-900 text-sm">Subscribers</p>
+                                            <p className="dark:text-[#8696a0] text-gray-500 text-xs">
                                                 {currentGroup?.memberCount || currentGroup?.members?.length || 0} {(currentGroup?.memberCount || currentGroup?.members?.length || 0) === 1 ? 'subscriber' : 'subscribers'}
                                             </p>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-[#8696a0]" />
+                                        <ChevronRight className="w-5 h-5 dark:text-[#8696a0] text-gray-400" />
                                     </button>
                                 ) : (
                                     <div className="w-full flex items-center gap-4 px-4 py-3">
@@ -280,8 +324,8 @@ const ChannelInfo = ({
                                             <Users className="w-5 h-5 text-[#00a884]" />
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <p className="text-white text-sm">Subscribers</p>
-                                            <p className="text-[#8696a0] text-xs">
+                                            <p className="dark:text-white text-gray-900 text-sm">Subscribers</p>
+                                            <p className="dark:text-[#8696a0] text-gray-500 text-xs">
                                                 {currentGroup?.memberCount || currentGroup?.members?.length || 0} {(currentGroup?.memberCount || currentGroup?.members?.length || 0) === 1 ? 'subscriber' : 'subscribers'}
                                             </p>
                                         </div>
@@ -290,17 +334,17 @@ const ChannelInfo = ({
 
                                 {/* Administrators - Only for owner/admins to see */}
                                 {isCreator && (
-                                    <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors">
+                                    <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#202c33] transition-colors">
                                         <div className="w-10 h-10 rounded-full bg-[#5865f2]/20 flex items-center justify-center">
                                             <Shield className="w-5 h-5 text-[#5865f2]" />
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <p className="text-white text-sm">Administrators</p>
+                                            <p className="dark:text-white text-gray-900 text-sm">Administrators</p>
                                         </div>
-                                        <span className="text-[#8696a0] text-sm mr-2">
+                                        <span className="dark:text-[#8696a0] text-gray-500 text-sm mr-2">
                                             {(group?.admins?.length || 0) + 1}
                                         </span>
-                                        <ChevronRight className="w-5 h-5 text-[#8696a0]" />
+                                        <ChevronRight className="w-5 h-5 dark:text-[#8696a0] text-gray-400" />
                                     </button>
                                 )}
 
@@ -308,36 +352,21 @@ const ChannelInfo = ({
                                 {isCreator && (
                                     <button 
                                         onClick={onNavigateToSettings}
-                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
+                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#202c33] transition-colors"
                                     >
                                         <div className="w-10 h-10 rounded-full bg-[#8696a0]/20 flex items-center justify-center">
                                             <Settings className="w-5 h-5 text-[#8696a0]" />
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <p className="text-white text-sm">Channel settings</p>
+                                            <p className="dark:text-white text-gray-900 text-sm">Channel settings</p>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-[#8696a0]" />
+                                        <ChevronRight className="w-5 h-5 dark:text-[#8696a0] text-gray-400" />
                                     </button>
                                 )}
                             </div>
 
-                            {/* Divider */}
-                            <div className="h-2 bg-[#0b141a]" />
-
-                            {/* Leave Section - Only for non-creator members */}
-                            {isMember && !isCreator && (
-                                <div className="bg-[#111b21] pb-8">
-                                    <button
-                                        onClick={() => setShowLeaveConfirm(true)}
-                                        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#202c33] transition-colors"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                                            <LogOut className="w-5 h-5 text-red-400" />
-                                        </div>
-                                        <p className="text-red-400 text-sm">Leave channel</p>
-                                    </button>
-                                </div>
-                            )}
+                            {/* Bottom padding */}
+                            <div className="h-8 dark:bg-[#111b21] bg-gray-50" />
                         </div>
                     </motion.div>
 

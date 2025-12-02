@@ -9,6 +9,7 @@ import { SafeImage } from "../components/SafeImage";
 import ConfirmModal from "../components/ConfirmModal";
 import ChannelInfo from "../components/ChannelInfo";
 import VideoPlayer from "../components/VideoPlayer";
+import { containerVariants, itemVariants, scaleVariants, slideUpVariants, fastTransition } from "../utils/animations";
 import axios from "axios";
 
 const GroupDetail = () => {
@@ -99,20 +100,38 @@ const GroupDetail = () => {
         setIsSending(true);
         try {
             const token = localStorage.getItem("token");
-            const formData = new FormData();
-            formData.append("content", newPost);
+            const MAX_FILES_PER_POST = 20;
             
-            // Append all selected media files
-            selectedMedia.forEach((file) => {
-                formData.append("media", file);
-            });
+            // Split files into chunks of 20 if more than 20 files
+            const fileChunks = [];
+            for (let i = 0; i < selectedMedia.length; i += MAX_FILES_PER_POST) {
+                fileChunks.push(selectedMedia.slice(i, i + MAX_FILES_PER_POST));
+            }
+            
+            // Send each chunk as a separate post
+            for (let i = 0; i < fileChunks.length; i++) {
+                const chunk = fileChunks[i];
+                const formData = new FormData();
+                
+                // Only add content to first post
+                formData.append("content", i === 0 ? newPost : "");
+                
+                // Append files for this chunk
+                chunk.forEach((file) => {
+                    formData.append("media", file);
+                });
 
-            await axios.post(`/api/groups/${id}/posts`, formData, {
-                headers: { 
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "multipart/form-data"
-                }
-            });
+                await axios.post(`/api/groups/${id}/posts`, formData, {
+                    headers: { 
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "multipart/form-data"
+                    }
+                });
+            }
+            
+            if (fileChunks.length > 1) {
+                toast.success(`${selectedMedia.length} files sent in ${fileChunks.length} posts!`);
+            }
             
             setNewPost("");
             setSelectedMedia([]);
@@ -120,6 +139,7 @@ const GroupDetail = () => {
             fetchGroup();
         } catch (error) {
             console.error("Error creating post:", error);
+            toast.error("Failed to send media");
         } finally {
             setIsSending(false);
         }
@@ -339,7 +359,7 @@ const GroupDetail = () => {
                                 className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
                             >
                                 <div className="relative">
-                                <div className={`max-w-xs sm:max-w-sm md:max-w-md px-3 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
+                                <div className={`max-w-[100vw] sm:max-w-[100vw] md:max-w-[100vw] lg:max-w-[100vw] px-3 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
                                     isOwn 
                                         ? 'bg-white/10 dark:bg-white/10 text-black dark:text-white rounded-br-none border-white/20 dark:border-white/20' 
                                         : 'dark:bg-white/5 bg-white/70 dark:text-white text-black rounded-bl-none dark:border-white/10 border-gray-200/50'
@@ -349,63 +369,41 @@ const GroupDetail = () => {
                                     )}
                                     
                                     {post.media && (
-                                        <div className="mb-2 rounded-xl overflow-hidden">
+                                        <div className="mb-2 rounded-xl">
                                             {Array.isArray(post.media) ? (
                                                 // Magic Frame Layout - preserves natural aspect ratios
                                                 post.media.length === 1 ? (
-                                                    // Single image - full natural aspect ratio
-                                                    <div className="flex justify-center">
+                                                    // Single media - full width with magic frame
+                                                    <div className="w-full">
                                                         {post.media[0].type === 'video' ? (
-                                                            <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[400px] rounded-lg" />
+                                                            <div className="w-full">
+                                                                <VideoPlayer src={post.media[0].url} className="w-full" />
+                                                            </div>
                                                         ) : post.media[0].type === 'image' ? (
-                                                            <SafeImage 
-                                                                src={post.media[0].url} 
-                                                                alt="Media" 
-                                                                onClick={() => setFullScreenImage(post.media[0].url)} 
-                                                                className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
-                                                            />
+                                                            <div className="w-full magic-frame-container">
+                                                                <SafeImage 
+                                                                    src={post.media[0].url} 
+                                                                    alt="Media" 
+                                                                    onClick={() => setFullScreenImage(post.media[0].url)} 
+                                                                    className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" 
+                                                                />
+                                                            </div>
                                                         ) : (
                                                             <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
                                                         )}
                                                     </div>
-                                                ) : post.media.length === 2 ? (
-                                                    // 2 images - side by side, natural aspect
-                                                    <div className="flex gap-1 items-center justify-center">
-                                                        {post.media.map((mediaItem, idx) => (
-                                                            <div key={idx} className="flex-1 flex justify-center">
-                                                                {mediaItem.type === 'video' ? (
-                                                                    <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[250px] rounded-lg" />
-                                                                ) : mediaItem.type === 'image' ? (
-                                                                    <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[250px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
-                                                                ) : (
-                                                                    <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
                                                 ) : (
-                                                    // 3+ images - flexible grid with natural aspect ratios
-                                                    <div className="flex flex-col gap-2">
-                                                        {/* First row - main image */}
-                                                        <div className="flex justify-center">
-                                                            {post.media[0].type === 'video' ? (
-                                                                <VideoPlayer src={post.media[0].url} className="max-w-full max-h-[380px] rounded-lg" />
-                                                            ) : post.media[0].type === 'image' ? (
-                                                                <SafeImage src={post.media[0].url} alt="Media" onClick={() => setFullScreenImage(post.media[0].url)} className="max-w-full max-h-[380px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
-                                                            ) : (
-                                                                <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
-                                                            )}
-                                                        </div>
-                                                        {/* Remaining images in rows of 2-3 */}
-                                                        <div className="flex flex-wrap gap-2 justify-center">
-                                                            {post.media.slice(1).map((mediaItem, idx) => (
-                                                                <div key={idx} className="flex justify-center" style={{ maxWidth: post.media.length <= 3 ? '48%' : '32%' }}>
+                                                    // Multiple media - full width magic frame container
+                                                    <div className="w-full magic-frame-container">
+                                                        <div className="flex flex-col gap-1 bg-black">
+                                                            {post.media.map((mediaItem, idx) => (
+                                                                <div key={idx} className="w-full">
                                                                     {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="max-w-full max-h-[240px] rounded-lg" />
+                                                                        <VideoPlayer src={mediaItem.url} className="w-full" />
                                                                     ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="max-w-full max-h-[240px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" />
+                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" />
                                                                     ) : (
-                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
+                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
                                                                     )}
                                                                 </div>
                                                             ))}

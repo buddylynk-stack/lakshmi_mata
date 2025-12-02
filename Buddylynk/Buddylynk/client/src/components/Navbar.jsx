@@ -5,6 +5,7 @@ import { useUnreadMessages } from "../hooks/useUnreadMessages";
 import { Home, Search, Users, User, Settings, LogOut, MessageCircle, Bookmark, Sparkles, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ConfirmModal from "./ConfirmModal";
+import { fastTransition, scaleVariants } from "../utils/animations";
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -39,7 +40,7 @@ const Navbar = () => {
         { icon: Home, label: "Home", path: "/" },
         { icon: Search, label: "Search", path: "/search" },
         { icon: MessageCircle, label: "Chat", path: "/chat" },
-        { icon: Users, label: "Create", path: "/groups" },
+        { icon: Users, label: "Team up", path: "/groups" },
         { icon: Bookmark, label: "Saved", path: "/saved" },
         { icon: User, label: "Profile", path: `/profile/${user?.userId}` },
         { icon: Settings, label: "Settings", path: "/settings" },
@@ -50,7 +51,7 @@ const Navbar = () => {
         { icon: Home, label: "Home", path: "/" },
         { icon: Search, label: "Search", path: "/search" },
         { icon: MessageCircle, label: "Chat", path: "/chat" },
-        { icon: Users, label: "Create", path: "/groups" },
+        { icon: Users, label: "Team up", path: "/groups" },
     ];
 
     // Mobile menu items

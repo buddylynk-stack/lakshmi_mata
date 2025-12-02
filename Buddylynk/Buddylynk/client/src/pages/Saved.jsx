@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bookmark, Heart, MessageCircle, Play, X, BookmarkX } from "lucide-react";
+import { motion } from "framer-motion";
+import { Bookmark, Heart, MessageCircle, Play, X, BookmarkX, Clock, Trash2 } from "lucide-react";
 import { SafeAvatar, SafeImage } from "../components/SafeImage";
 import HamsterLoader from "../components/HamsterLoader";
+import ConfirmModal from "../components/ConfirmModal";
 import axios from "axios";
 
 const Saved = () => {
@@ -14,8 +15,10 @@ const Saved = () => {
     const { socket, on, off } = useSocket();
     const [savedPosts, setSavedPosts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPost, setSelectedPost] = useState(null);
     const [userAvatars, setUserAvatars] = useState({});
+    const [viewMode, setViewMode] = useState("list");
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [postToDelete, setPostToDelete] = useState(null);
 
     useEffect(() => {
         fetchSavedPosts();
@@ -88,60 +91,115 @@ const Saved = () => {
         }
     };
 
-    const handleUnsavePost = async (postId) => {
+    const handleDeleteClick = (postId, e) => {
+        if (e) e.stopPropagation();
+        setPostToDelete(postId);
+        setShowDeleteModal(true);
+    };
+
+    const handleUnsavePost = async () => {
+        if (!postToDelete) return;
         try {
             const token = localStorage.getItem("token");
-            await axios.post(`/api/posts/${postId}/save`, {}, {
+            await axios.post(`/api/posts/${postToDelete}/save`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setSavedPosts(savedPosts.filter(post => post.postId !== postId));
-            setSelectedPost(null);
+            setSavedPosts(savedPosts.filter(post => post.postId !== postToDelete));
+            setPostToDelete(null);
         } catch (error) {
             console.error("Error unsaving post:", error);
         }
     };
 
+    const formatTimeAgo = (date) => {
+        if (!date) return "";
+        const now = new Date();
+        const postDate = new Date(date);
+        const diffMs = now - postDate;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return postDate.toLocaleDateString();
+    };
+
+    // Optimized animation variants for GPU acceleration
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.05 }
+            transition: {
+                duration: 0.2,
+                staggerChildren: 0.03,
+                when: "beforeChildren"
+            }
         }
     };
 
     const itemVariants = {
-        hidden: { opacity: 0, scale: 0.8 },
+        hidden: { 
+            opacity: 0, 
+            y: 10,
+            willChange: "transform, opacity"
+        },
         visible: { 
             opacity: 1, 
-            scale: 1,
-            transition: { type: "spring", stiffness: 300, damping: 25 }
+            y: 0,
+            transition: {
+                duration: 0.2,
+                ease: [0.25, 0.46, 0.45, 0.94]
+            }
         }
     };
 
     return (
-        <div className="min-h-screen md:pl-72 pt-4 pb-24 md:pb-4 dark:bg-dark bg-gray-100">
-            <div className="max-w-6xl mx-auto px-3 sm:px-4">
+        <div className="min-h-screen md:pl-72 pt-4 pb-24 md:pb-4 dark:bg-[#111b21] bg-gray-50">
+            <div className="max-w-5xl mx-auto px-3 sm:px-6">
                 {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 sm:mb-8"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <motion.div
-                            className="p-2.5 sm:p-3 rounded-xl bg-primary/20"
-                            whileHover={{ rotate: 10, scale: 1.1 }}
-                        >
-                            <Bookmark className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
-                        </motion.div>
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold dark:text-white text-gray-900">Saved Posts</h1>
-                            <p className="text-theme-secondary text-xs sm:text-sm">
-                                {savedPosts.length} {savedPosts.length === 1 ? 'post' : 'posts'} saved
-                            </p>
+                <div className="mb-6">
+                    <div className="dark:bg-[#202c33] bg-white rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                                    <Bookmark className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-bold dark:text-white text-gray-900">Saved</h1>
+                                    <p className="dark:text-[#8696a0] text-gray-500 text-sm">
+                                        {savedPosts.length} {savedPosts.length === 1 ? 'item' : 'items'}
+                                    </p>
+                                </div>
+                            </div>
+                            {/* View Toggle */}
+                            <div className="flex dark:bg-[#111b21] bg-gray-100 rounded-lg p-1">
+                                <button
+                                    onClick={() => setViewMode("list")}
+                                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 ${
+                                        viewMode === "list"
+                                            ? "bg-[#00a884] text-white"
+                                            : "dark:text-[#8696a0] text-gray-600"
+                                    }`}
+                                >
+                                    List
+                                </button>
+                                <button
+                                    onClick={() => setViewMode("compact")}
+                                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 ${
+                                        viewMode === "compact"
+                                            ? "bg-[#00a884] text-white"
+                                            : "dark:text-[#8696a0] text-gray-600"
+                                    }`}
+                                >
+                                    Compact
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* Loading State */}
                 {loading ? (
@@ -150,26 +208,19 @@ const Saved = () => {
                     </div>
                 ) : savedPosts.length === 0 ? (
                     /* Empty State */
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="glass-panel p-12 text-center"
-                    >
-                        <motion.div
-                            animate={{ y: [0, -10, 0] }}
-                            transition={{ repeat: Infinity, duration: 2 }}
-                        >
-                            <BookmarkX className="w-20 h-20 text-theme-muted mx-auto mb-4" />
-                        </motion.div>
-                        <h2 className="text-2xl font-semibold dark:text-white text-gray-900 mb-2">No saved posts yet</h2>
-                        <p className="text-theme-secondary max-w-md mx-auto">
-                            Save posts you want to see again by tapping the bookmark icon
+                    <div className="dark:bg-[#202c33] bg-white rounded-2xl p-12 text-center shadow-sm">
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                            <BookmarkX className="w-10 h-10 dark:text-[#8696a0] text-gray-400" />
+                        </div>
+                        <h2 className="text-xl font-semibold dark:text-white text-gray-900 mb-2">Nothing saved yet</h2>
+                        <p className="dark:text-[#8696a0] text-gray-500 max-w-sm mx-auto">
+                            Tap the bookmark icon on any post to save it here for later
                         </p>
-                    </motion.div>
-                ) : (
-                    /* Grid of Saved Posts */
+                    </div>
+                ) : viewMode === "list" ? (
+                    /* List View - Card Style */
                     <motion.div 
-                        className="grid grid-cols-3 gap-0.5 sm:gap-1"
+                        className="space-y-4 content-auto"
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
@@ -177,180 +228,183 @@ const Saved = () => {
                         {savedPosts.map((post) => {
                             const hasMedia = post.media && post.media.length > 0;
                             const firstMedia = hasMedia ? post.media[0] : null;
-                            const hasMultiple = post.media && post.media.length > 1;
 
                             return (
                                 <motion.div
                                     key={post.postId}
                                     variants={itemVariants}
-                                    onClick={() => setSelectedPost(post)}
-                                    className="relative aspect-square bg-gray-200 dark:bg-gray-800 cursor-pointer group overflow-hidden"
-                                    whileHover={{ scale: 1.02 }}
+                                    onClick={() => navigate(`/post/${post.postId}`)}
+                                    className="dark:bg-[#202c33] bg-white rounded-2xl overflow-hidden shadow-sm cursor-pointer dark:hover:bg-[#2a3942] hover:bg-gray-50 transition-colors duration-100 transform-gpu content-auto"
                                 >
-                                    {hasMedia ? (
-                                        firstMedia.type === "video" ? (
-                                            <video
-                                                src={firstMedia.url}
-                                                className="w-full h-full object-contain bg-black"
-                                            />
-                                        ) : (
-                                            <SafeImage
-                                                src={firstMedia.url}
-                                                alt="Saved post"
-                                                className="w-full h-full object-contain bg-black"
-                                            />
-                                        )
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-primary/20 to-secondary/20">
-                                            <p className="dark:text-white text-gray-900 text-sm line-clamp-6 text-center">
-                                                {post.content}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {hasMultiple && (
-                                        <div className="absolute top-2 right-2">
-                                            <div className="bg-black/60 backdrop-blur-sm rounded-full p-1">
-                                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                                                </svg>
+                                    <div className="flex">
+                                        {/* Thumbnail */}
+                                        {hasMedia && (
+                                            <div className="w-48 h-48 flex-shrink-0 relative overflow-hidden">
+                                                {firstMedia.type === "video" ? (
+                                                    <div className="w-full h-full relative">
+                                                        <video
+                                                            src={firstMedia.url}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                                                            <Play className="w-12 h-12 text-white fill-white" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <SafeImage
+                                                        src={firstMedia.url}
+                                                        alt="Saved post"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {firstMedia?.type === "video" && (
-                                        <div className="absolute top-2 right-2">
-                                            <div className="bg-black/60 backdrop-blur-sm rounded-full p-1">
-                                                <Play className="w-4 h-4 text-white fill-white" />
+                                        {/* Content */}
+                                        <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
+                                            <div>
+                                                {/* User Info */}
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <SafeAvatar
+                                                        src={userAvatars[post.userId] || post.userAvatar}
+                                                        alt={post.username}
+                                                        fallbackText={post.username}
+                                                        className="w-10 h-10 rounded-full"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="dark:text-white text-gray-900 font-semibold text-base truncate">
+                                                                {post.username}
+                                                            </span>
+                                                            <span className="dark:text-[#8696a0] text-gray-500 text-sm">
+                                                                • {formatTimeAgo(post.createdAt)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Post Content Preview */}
+                                                {post.content && (
+                                                    <p className="dark:text-[#d1d7db] text-gray-700 text-base line-clamp-3 mb-3">
+                                                        {post.content}
+                                                    </p>
+                                                )}
+                                                {!post.content && hasMedia && (
+                                                    <p className="dark:text-[#8696a0] text-gray-500 text-sm italic mb-3">
+                                                        {firstMedia.type === "video" ? "Video post" : "Photo post"}
+                                                    </p>
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
 
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6">
-                                        <div className="flex items-center gap-2 text-white">
-                                            <Heart className="w-6 h-6 fill-white" />
-                                            <span className="font-semibold">{post.likes || 0}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-white">
-                                            <MessageCircle className="w-6 h-6 fill-white" />
-                                            <span className="font-semibold">{post.comments?.length || 0}</span>
+                                            {/* Stats & Actions */}
+                                            <div className="flex items-center justify-between pt-3 border-t dark:border-[#2a3942] border-gray-200">
+                                                <div className="flex items-center gap-6 text-sm dark:text-[#8696a0] text-gray-500">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Heart className="w-4 h-4" />
+                                                        {post.likes || 0}
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5">
+                                                        <MessageCircle className="w-4 h-4" />
+                                                        {post.comments?.length || 0}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => handleDeleteClick(post.postId, e)}
+                                                    className="p-2 rounded-lg dark:hover:bg-red-500/20 hover:bg-red-50 dark:text-[#8696a0] text-gray-500 hover:text-red-500 transition-colors duration-150"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </motion.div>
                             );
                         })}
                     </motion.div>
+                ) : (
+                    /* Compact View */
+                    <motion.div 
+                        className="dark:bg-[#202c33] bg-white rounded-2xl overflow-hidden shadow-sm divide-y dark:divide-[#2a3942] divide-gray-100"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        {savedPosts.map((post) => {
+                            const hasMedia = post.media && post.media.length > 0;
+                            const firstMedia = hasMedia ? post.media[0] : null;
+
+                            return (
+                                <motion.div
+                                    key={post.postId}
+                                    variants={itemVariants}
+                                    onClick={() => navigate(`/post/${post.postId}`)}
+                                    className="flex items-center gap-3 p-3 cursor-pointer dark:hover:bg-[#2a3942] hover:bg-gray-50 transition-colors duration-100 transform-gpu"
+                                >
+                                    {/* Small Thumbnail or Avatar */}
+                                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-200 dark:bg-gray-700">
+                                        {hasMedia ? (
+                                            firstMedia.type === "video" ? (
+                                                <div className="w-full h-full relative">
+                                                    <video src={firstMedia.url} className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
+                                                        <Play className="w-4 h-4 text-white fill-white" />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <SafeImage src={firstMedia.url} alt="" className="w-full h-full object-cover" />
+                                            )
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
+                                                <Bookmark className="w-5 h-5 dark:text-white/50 text-gray-400" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="dark:text-white text-gray-900 font-medium text-sm truncate">
+                                                {post.username}
+                                            </span>
+                                        </div>
+                                        <p className="dark:text-[#8696a0] text-gray-500 text-xs truncate">
+                                            {post.content || (hasMedia ? (firstMedia.type === "video" ? "Video" : "Photo") : "Post")}
+                                        </p>
+                                    </div>
+
+                                    {/* Time */}
+                                    <div className="flex items-center gap-1 dark:text-[#8696a0] text-gray-400 text-xs flex-shrink-0">
+                                        <Clock className="w-3 h-3" />
+                                        {formatTimeAgo(post.createdAt)}
+                                    </div>
+
+                                    {/* Remove Button */}
+                                    <button
+                                        onClick={(e) => handleDeleteClick(post.postId, e)}
+                                        className="p-2 rounded-lg dark:hover:bg-red-500/20 hover:bg-red-50 dark:text-[#8696a0] text-gray-400 hover:text-red-500 transition-colors duration-150 flex-shrink-0"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </motion.div>
+                            );
+                        })}
+                    </motion.div>
                 )}
 
-                {/* Post Detail Modal */}
-                <AnimatePresence>
-                    {selectedPost && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setSelectedPost(null)}
-                            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                        >
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="glass-panel max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20"
-                            >
-                                {/* Close Button */}
-                                <motion.button
-                                    onClick={() => setSelectedPost(null)}
-                                    className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
-                                    whileHover={{ scale: 1.1, rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <X className="w-5 h-5" />
-                                </motion.button>
-
-                                {/* Post Header */}
-                                <div className="flex items-center justify-between p-4 border-b dark:border-white/10 border-gray-200">
-                                    <div className="flex items-center gap-3">
-                                        <SafeAvatar
-                                            src={userAvatars[selectedPost.userId] || selectedPost.userAvatar}
-                                            alt={selectedPost.username}
-                                            fallbackText={selectedPost.username}
-                                            className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                                            onClick={() => {
-                                                navigate(`/profile/${selectedPost.userId}`);
-                                                setSelectedPost(null);
-                                            }}
-                                        />
-                                        <div>
-                                            <h3
-                                                onClick={() => {
-                                                    navigate(`/profile/${selectedPost.userId}`);
-                                                    setSelectedPost(null);
-                                                }}
-                                                className="font-semibold dark:text-white text-gray-900 cursor-pointer hover:text-primary transition-colors"
-                                            >
-                                                {selectedPost.username}
-                                            </h3>
-                                            <p className="text-xs text-theme-secondary">
-                                                {selectedPost.createdAt ? new Date(selectedPost.createdAt).toLocaleDateString() : 'Unknown date'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <motion.button
-                                        onClick={() => handleUnsavePost(selectedPost.postId)}
-                                        className="p-2 rounded-xl text-primary hover:bg-primary/10 transition-colors"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                    >
-                                        <Bookmark className="w-6 h-6 fill-current" />
-                                    </motion.button>
-                                </div>
-
-                                {/* Post Content */}
-                                <div className="p-4">
-                                    {selectedPost.content && (
-                                        <p className="dark:text-gray-200 text-gray-800 mb-4 whitespace-pre-wrap">
-                                            {selectedPost.content}
-                                        </p>
-                                    )}
-
-                                    {selectedPost.media && selectedPost.media.length > 0 && (
-                                        <div className="mb-4 rounded-xl overflow-hidden">
-                                            {selectedPost.media[0].type === "video" ? (
-                                                <video
-                                                    src={selectedPost.media[0].url}
-                                                    controls
-                                                    className="w-full max-h-96 object-contain bg-black"
-                                                />
-                                            ) : (
-                                                <SafeImage
-                                                    src={selectedPost.media[0].url}
-                                                    alt="Post content"
-                                                    className="w-full max-h-96 object-contain bg-black"
-                                                />
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Post Stats */}
-                                    <div className="flex items-center gap-6 text-sm text-theme-secondary pt-4 border-t dark:border-white/10 border-gray-200">
-                                        <div className="flex items-center gap-2">
-                                            <Heart className="w-5 h-5" />
-                                            <span>{selectedPost.likes || 0} likes</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <MessageCircle className="w-5 h-5" />
-                                            <span>{selectedPost.comments?.length || 0} comments</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* Delete Confirmation Modal */}
+                <ConfirmModal
+                    isOpen={showDeleteModal}
+                    onClose={() => {
+                        setShowDeleteModal(false);
+                        setPostToDelete(null);
+                    }}
+                    onConfirm={handleUnsavePost}
+                    title="Remove from Saved?"
+                    message="Are you sure you want to remove this post from your saved collection? You can always save it again later."
+                    confirmText="Remove"
+                    cancelText="Cancel"
+                    type="danger"
+                />
             </div>
         </div>
     );

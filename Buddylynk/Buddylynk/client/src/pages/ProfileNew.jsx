@@ -14,6 +14,7 @@ import { SafeAvatar, SafeImage } from "../components/SafeImage";
 import ConfirmModal from "../components/ConfirmModal";
 import VideoPlayer from "../components/VideoPlayer";
 import { AvatarWithStatus } from "../components/OnlineIndicator";
+import { containerVariants, itemVariants, scaleVariants, fastTransition } from "../utils/animations";
 
 const ProfileNew = () => {
     const { id } = useParams();

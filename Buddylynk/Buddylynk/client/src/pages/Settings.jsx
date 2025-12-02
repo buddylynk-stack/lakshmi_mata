@@ -5,6 +5,7 @@ import { useSocket } from "../context/SocketContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Moon, Sun, UserX, X, Lock, Eye, EyeOff, Shield, Palette, Bell, ChevronRight, Check } from "lucide-react";
 import { SafeAvatar } from "../components/SafeImage";
+import { containerVariants, itemVariants, scaleVariants, fastTransition } from "../utils/animations";
 import axios from "axios";
 
 const Settings = () => {
@@ -393,7 +394,7 @@ const Settings = () => {
                     {/* Version Section */}
                     <motion.div variants={itemVariants} className="text-center py-6">
                         <p className="text-theme-secondary text-sm">Version</p>
-                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.8</p>
+                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.15</p>
                     </motion.div>
                 </motion.div>
             </div>

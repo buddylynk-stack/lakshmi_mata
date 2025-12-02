@@ -61,7 +61,9 @@ const AppRoutes = () => {
         <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
         <Route path="/groups" element={<PrivateRoute><Create /></PrivateRoute>} />
         <Route path="/groups/:id" element={<PrivateRoute><GroupDetail /></PrivateRoute>} />
-        <Route path="/invite/:inviteCode" element={<PrivateRoute><InviteJoin /></PrivateRoute>} />
+        
+        {/* Public invite route - shows channel preview without login */}
+        <Route path="/invite/:inviteCode" element={<InviteJoin />} />
         <Route path="/profile/:id" element={<PrivateRoute><ProfileNew /></PrivateRoute>} />
         <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

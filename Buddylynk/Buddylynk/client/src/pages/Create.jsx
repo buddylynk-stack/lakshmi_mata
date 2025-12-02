@@ -5,20 +5,20 @@ import {
     Radio,
     X,
     Upload,
-    Plus,
-    Link as LinkIcon,
     Lock,
     Globe,
     Edit3,
     Loader2,
     Search,
     Check,
+    Crown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useRealTimeGroups } from "../hooks/useRealTimeGroups";
 import { SafeImage } from "../components/SafeImage";
 import HamsterLoader from "../components/HamsterLoader";
+import { containerVariants, itemVariants, scaleVariants, fastTransition } from "../utils/animations";
 import axios from "axios";
 
 const Create = () => {
@@ -58,7 +58,10 @@ const Create = () => {
     const fetchGroups = async () => {
         setLoading(true);
         try {
-            const res = await axios.get("/api/groups");
+            const token = localStorage.getItem("token");
+            const res = await axios.get("/api/groups", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             setGroups(res.data);
         } catch (error) {
             console.error("Error fetching groups:", error);
@@ -160,12 +163,16 @@ const Create = () => {
 
     // Filter groups based on search and active tab
     const filteredGroups = groups.filter((group) => {
-        const matchesSearch = group.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            group.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        // Handle search - if no search query, match all
+        const query = searchQuery.toLowerCase().trim();
+        const matchesSearch = !query || 
+            (group.name || '').toLowerCase().includes(query) ||
+            (group.description || '').toLowerCase().includes(query);
         
         if (!matchesSearch) return false;
         
-        const isMember = group.members?.includes(user.userId);
+        const userId = user?.userId;
+        const isMember = userId ? group.members?.includes(userId) : false;
         
         if (activeTab === "joined") {
             // Show only groups user has joined (public or private)
@@ -177,8 +184,12 @@ const Create = () => {
     });
     
     // Count for tabs
-    const joinedCount = groups.filter(g => g.members?.includes(user.userId)).length;
-    const discoverCount = groups.filter(g => !g.members?.includes(user.userId) && g.visibility !== 'private').length;
+    const userId = user?.userId;
+    const joinedCount = groups.filter(g => userId ? g.members?.includes(userId) : false).length;
+    const discoverCount = groups.filter(g => {
+        const isMember = userId ? g.members?.includes(userId) : false;
+        return !isMember && g.visibility !== 'private';
+    }).length;
 
     // Get last message preview for Telegram style
     const getLastMessage = (group) => {
@@ -205,22 +216,22 @@ const Create = () => {
     };
 
     return (
-        <div className="fixed inset-0 md:pl-72 dark:bg-[#111b21] bg-[#111b21] flex flex-col">
+        <div className="fixed inset-0 md:pl-72 dark:bg-[#111b21] bg-gray-50 flex flex-col">
             {/* Telegram-style Header */}
-            <div className="bg-[#202c33] px-4 py-3 flex items-center gap-3 border-b border-[#2a3942]">
-                <h1 className="text-xl font-semibold text-white flex-1">Channels</h1>
-                <div className="text-[#8696a0] text-sm">{filteredGroups.length}</div>
+            <div className="dark:bg-[#202c33] bg-white px-4 py-3 flex items-center gap-3 border-b dark:border-[#2a3942] border-gray-200">
+                <h1 className="text-xl font-semibold dark:text-white text-gray-900 flex-1">Channels</h1>
+                <div className="dark:text-[#8696a0] text-gray-600 text-sm">{filteredGroups.length}</div>
             </div>
 
             {/* Tabs */}
-            <div className="bg-[#111b21] px-3 pt-3 pb-2">
-                <div className="flex gap-2 bg-[#202c33] p-1 rounded-xl">
+            <div className="dark:bg-[#111b21] bg-gray-50 px-3 pt-3 pb-2">
+                <div className="flex gap-2 dark:bg-[#202c33] bg-gray-200 p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab("joined")}
                         className={`flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all ${
                             activeTab === "joined"
                                 ? "bg-[#00a884] text-white"
-                                : "text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+                                : "dark:text-[#8696a0] text-gray-600 dark:hover:text-white hover:text-gray-900 dark:hover:bg-[#2a3942] hover:bg-gray-300"
                         }`}
                     >
                         Joined ({joinedCount})
@@ -230,7 +241,7 @@ const Create = () => {
                         className={`flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all ${
                             activeTab === "discover"
                                 ? "bg-[#00a884] text-white"
-                                : "text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+                                : "dark:text-[#8696a0] text-gray-600 dark:hover:text-white hover:text-gray-900 dark:hover:bg-[#2a3942] hover:bg-gray-300"
                         }`}
                     >
                         Discover ({discoverCount})
@@ -239,15 +250,15 @@ const Create = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="bg-[#111b21] px-3 py-2">
+            <div className="dark:bg-[#111b21] bg-gray-50 px-3 py-2">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8696a0]" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 dark:text-[#8696a0] text-gray-400" />
                     <input
                         type="text"
                         placeholder={activeTab === "joined" ? "Search your channels..." : "Discover new channels..."}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-[#202c33] text-white placeholder-[#8696a0] rounded-lg focus:outline-none text-sm"
+                        className="w-full pl-10 pr-4 py-2 dark:bg-[#202c33] bg-white dark:text-white text-gray-900 dark:placeholder-[#8696a0] placeholder-gray-400 rounded-lg focus:outline-none text-sm border dark:border-transparent border-gray-300"
                     />
                 </div>
             </div>
@@ -260,15 +271,15 @@ const Create = () => {
                     </div>
                 ) : filteredGroups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 px-4">
-                        <Users className="w-16 h-16 text-[#8696a0] mb-4" />
-                        <p className="text-[#8696a0] text-center">
+                        <Users className="w-16 h-16 dark:text-[#8696a0] text-gray-400 mb-4" />
+                        <p className="dark:text-[#8696a0] text-gray-600 text-center">
                             {searchQuery 
                                 ? "No channels found" 
                                 : activeTab === "joined" 
                                     ? "No joined channels yet" 
                                     : "No channels to discover"}
                         </p>
-                        <p className="text-[#8696a0] text-sm text-center mt-1">
+                        <p className="dark:text-[#8696a0] text-gray-500 text-sm text-center mt-1">
                             {activeTab === "joined" 
                                 ? "Switch to Discover to find channels" 
                                 : "Tap the pencil button to create one"}
@@ -283,16 +294,22 @@ const Create = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="divide-y divide-[#2a3942]">
+                    <motion.div 
+                        key={activeTab}
+                        className="divide-y dark:divide-[#2a3942] divide-gray-200"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         {filteredGroups.map((group) => (
                             <motion.div
                                 key={group.groupId}
+                                variants={itemVariants}
                                 onClick={() => navigate(`/groups/${group.groupId}`)}
-                                className="flex items-center gap-3 px-4 py-3 hover:bg-[#202c33] cursor-pointer transition-colors active:bg-[#2a3942]"
-                                whileTap={{ scale: 0.98 }}
+                                className="flex items-center gap-3 px-4 py-3 dark:hover:bg-[#202c33] hover:bg-gray-100 cursor-pointer transition-colors duration-100 dark:active:bg-[#2a3942] active:bg-gray-200 transform-gpu"
                             >
                                 {/* Avatar */}
-                                <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-[#2a3942]">
+                                <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 dark:bg-[#2a3942] bg-gray-200">
                                     {group.coverImage ? (
                                         <SafeImage
                                             src={group.coverImage}
@@ -310,7 +327,7 @@ const Create = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <h3 className="text-white font-medium truncate">
+                                            <h3 className="dark:text-white text-gray-900 font-medium truncate">
                                                 {group.name}
                                             </h3>
                                             {/* Channel/Group badge */}
@@ -329,19 +346,22 @@ const Create = () => {
                                                 </span>
                                             )}
                                         </div>
-                                        <span className="text-[#8696a0] text-xs flex-shrink-0 ml-2">
-                                            {getLastMessageTime(group)}
-                                        </span>
+                                        {/* Creator badge - shows if user created this channel */}
+                                        {group.creatorId === user?.userId && (
+                                            <span className="flex-shrink-0 ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-500 flex items-center gap-0.5">
+                                                <Crown className="w-3 h-3" />
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <p className="text-[#8696a0] text-sm truncate">
+                                        <p className="dark:text-[#8696a0] text-gray-600 text-sm truncate">
                                             {getLastMessage(group)}
                                         </p>
                                     </div>
                                 </div>
                             </motion.div>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
             </div>
 
@@ -359,40 +379,41 @@ const Create = () => {
                             />
                             <div className="absolute bottom-20 right-0 space-y-3 min-w-[260px]">
                                 <motion.button
-                                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                                    transition={{ delay: 0.05 }}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    transition={fastTransition}
                                     onClick={() => {
                                         setShowChannelModal(true);
                                         setShowFabOptions(false);
                                     }}
-                                    className="w-full bg-[#202c33] rounded-2xl p-4 flex items-center gap-4 hover:bg-[#2a3942] transition-colors"
+                                    className="w-full dark:bg-[#202c33] bg-white rounded-2xl p-4 flex items-center gap-4 dark:hover:bg-[#2a3942] hover:bg-gray-100 transition-colors duration-150 shadow-lg transform-gpu"
                                 >
                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                                         <Radio className="w-6 h-6 text-white" />
                                     </div>
                                     <div className="text-left">
-                                        <h4 className="text-white font-medium">New Channel</h4>
-                                        <p className="text-[#8696a0] text-xs">Broadcast to subscribers</p>
+                                        <h4 className="dark:text-white text-gray-900 font-medium">New Channel</h4>
+                                        <p className="dark:text-[#8696a0] text-gray-600 text-xs">Broadcast to subscribers</p>
                                     </div>
                                 </motion.button>
                                 <motion.button
-                                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    transition={{ ...fastTransition, delay: 0.03 }}
                                     onClick={() => {
                                         setShowGroupModal(true);
                                         setShowFabOptions(false);
                                     }}
-                                    className="w-full bg-[#202c33] rounded-2xl p-4 flex items-center gap-4 hover:bg-[#2a3942] transition-colors"
+                                    className="w-full dark:bg-[#202c33] bg-white rounded-2xl p-4 flex items-center gap-4 dark:hover:bg-[#2a3942] hover:bg-gray-100 transition-colors duration-150 shadow-lg transform-gpu"
                                 >
                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                                         <Users className="w-6 h-6 text-white" />
                                     </div>
                                     <div className="text-left">
-                                        <h4 className="text-white font-medium">New Group</h4>
-                                        <p className="text-[#8696a0] text-xs">Chat with friends</p>
+                                        <h4 className="dark:text-white text-gray-900 font-medium">New Group</h4>
+                                        <p className="dark:text-[#8696a0] text-gray-600 text-xs">Chat with friends</p>
                                     </div>
                                 </motion.button>
                             </div>
@@ -403,10 +424,11 @@ const Create = () => {
                 {/* Main FAB - Blue Pencil */}
                 <motion.button
                     onClick={() => setShowFabOptions(!showFabOptions)}
-                    className="w-14 h-14 rounded-full bg-[#00a884] shadow-lg flex items-center justify-center text-white"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    className="w-14 h-14 rounded-full bg-[#00a884] shadow-lg flex items-center justify-center text-white transform-gpu"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     animate={{ rotate: showFabOptions ? 45 : 0 }}
+                    transition={fastTransition}
                 >
                     {showFabOptions ? (
                         <X className="w-6 h-6" />
@@ -423,19 +445,21 @@ const Create = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
                         className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
                         onClick={() => setShowGroupModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
+                            variants={scaleVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#202c33] rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                            className="dark:bg-[#202c33] bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform-gpu"
                         >
-                            <div className="px-4 py-3 border-b border-[#2a3942] flex items-center justify-between">
-                                <h2 className="text-xl font-semibold text-white">New Group</h2>
-                                <button onClick={() => setShowGroupModal(false)} className="text-[#8696a0] p-1">
+                            <div className="px-4 py-3 border-b dark:border-[#2a3942] border-gray-200 flex items-center justify-between">
+                                <h2 className="text-xl font-semibold dark:text-white text-gray-900">New Group</h2>
+                                <button onClick={() => setShowGroupModal(false)} className="dark:text-[#8696a0] text-gray-500 p-1">
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
@@ -457,20 +481,20 @@ const Create = () => {
                                     value={groupName}
                                     onChange={(e) => setGroupName(e.target.value)}
                                     placeholder="Group name"
-                                    className="w-full px-4 py-3 bg-[#2a3942] text-white placeholder-[#8696a0] rounded-lg focus:outline-none"
+                                    className="w-full px-4 py-3 dark:bg-[#2a3942] bg-gray-100 dark:text-white text-gray-900 dark:placeholder-[#8696a0] placeholder-gray-500 rounded-lg focus:outline-none border dark:border-transparent border-gray-300"
                                 />
                                 <textarea
                                     value={groupDescription}
                                     onChange={(e) => setGroupDescription(e.target.value)}
                                     placeholder="Description (optional)"
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-[#2a3942] text-white placeholder-[#8696a0] rounded-lg focus:outline-none resize-none"
+                                    className="w-full px-4 py-3 dark:bg-[#2a3942] bg-gray-100 dark:text-white text-gray-900 dark:placeholder-[#8696a0] placeholder-gray-500 rounded-lg focus:outline-none resize-none border dark:border-transparent border-gray-300"
                                 />
                             </div>
-                            <div className="px-4 py-3 border-t border-[#2a3942] flex gap-3">
+                            <div className="px-4 py-3 border-t dark:border-[#2a3942] border-gray-200 flex gap-3">
                                 <button
                                     onClick={() => { resetGroupForm(); setShowGroupModal(false); }}
-                                    className="flex-1 py-3 bg-[#2a3942] text-white rounded-lg"
+                                    className="flex-1 py-3 dark:bg-[#2a3942] bg-gray-200 dark:text-white text-gray-900 rounded-lg"
                                 >
                                     Cancel
                                 </button>
@@ -495,19 +519,21 @@ const Create = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
                         className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
                         onClick={() => setShowChannelModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
+                            variants={scaleVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#202c33] rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                            className="dark:bg-[#202c33] bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform-gpu"
                         >
-                            <div className="px-4 py-3 border-b border-[#2a3942] flex items-center justify-between">
-                                <h2 className="text-xl font-semibold text-white">New Channel</h2>
-                                <button onClick={() => setShowChannelModal(false)} className="text-[#8696a0] p-1">
+                            <div className="px-4 py-3 border-b dark:border-[#2a3942] border-gray-200 flex items-center justify-between">
+                                <h2 className="text-xl font-semibold dark:text-white text-gray-900">New Channel</h2>
+                                <button onClick={() => setShowChannelModal(false)} className="dark:text-[#8696a0] text-gray-500 p-1">
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
@@ -529,22 +555,22 @@ const Create = () => {
                                     value={channelName}
                                     onChange={(e) => setChannelName(e.target.value)}
                                     placeholder="Channel name"
-                                    className="w-full px-4 py-3 bg-[#2a3942] text-white placeholder-[#8696a0] rounded-lg focus:outline-none"
+                                    className="w-full px-4 py-3 dark:bg-[#2a3942] bg-gray-100 dark:text-white text-gray-900 dark:placeholder-[#8696a0] placeholder-gray-500 rounded-lg focus:outline-none border dark:border-transparent border-gray-300"
                                 />
                                 <textarea
                                     value={channelDescription}
                                     onChange={(e) => setChannelDescription(e.target.value)}
                                     placeholder="Description (optional)"
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-[#2a3942] text-white placeholder-[#8696a0] rounded-lg focus:outline-none resize-none"
+                                    className="w-full px-4 py-3 dark:bg-[#2a3942] bg-gray-100 dark:text-white text-gray-900 dark:placeholder-[#8696a0] placeholder-gray-500 rounded-lg focus:outline-none resize-none border dark:border-transparent border-gray-300"
                                 />
                                 <div className="space-y-2">
-                                    <p className="text-[#8696a0] text-sm">Channel type</p>
+                                    <p className="dark:text-[#8696a0] text-gray-600 text-sm">Channel type</p>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setChannelPrivacy("public")}
                                             className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 ${
-                                                channelPrivacy === "public" ? "bg-[#00a884] text-white" : "bg-[#2a3942] text-[#8696a0]"
+                                                channelPrivacy === "public" ? "bg-[#00a884] text-white" : "dark:bg-[#2a3942] bg-gray-200 dark:text-[#8696a0] text-gray-600"
                                             }`}
                                         >
                                             <Globe className="w-4 h-4" /> Public
@@ -552,7 +578,7 @@ const Create = () => {
                                         <button
                                             onClick={() => setChannelPrivacy("private")}
                                             className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 ${
-                                                channelPrivacy === "private" ? "bg-[#00a884] text-white" : "bg-[#2a3942] text-[#8696a0]"
+                                                channelPrivacy === "private" ? "bg-[#00a884] text-white" : "dark:bg-[#2a3942] bg-gray-200 dark:text-[#8696a0] text-gray-600"
                                             }`}
                                         >
                                             <Lock className="w-4 h-4" /> Private
@@ -560,10 +586,10 @@ const Create = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="px-4 py-3 border-t border-[#2a3942] flex gap-3">
+                            <div className="px-4 py-3 border-t dark:border-[#2a3942] border-gray-200 flex gap-3">
                                 <button
                                     onClick={() => { resetChannelForm(); setShowChannelModal(false); }}
-                                    className="flex-1 py-3 bg-[#2a3942] text-white rounded-lg"
+                                    className="flex-1 py-3 dark:bg-[#2a3942] bg-gray-200 dark:text-white text-gray-900 rounded-lg"
                                 >
                                     Cancel
                                 </button>

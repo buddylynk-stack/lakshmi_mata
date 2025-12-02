@@ -11,6 +11,7 @@ import CallModal from "../components/CallModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { AvatarWithStatus, OnlineBadge } from "../components/OnlineIndicator";
 import HamsterLoader from "../components/HamsterLoader";
+import { containerVariants, itemVariants, scaleVariants, slideUpVariants, fastTransition } from "../utils/animations";
 
 const Chat = () => {
     const { user } = useAuth();

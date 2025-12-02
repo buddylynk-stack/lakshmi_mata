@@ -3,9 +3,46 @@
 @tailwind utilities;
 
 @layer base {
+  /* GPU acceleration & CPU optimization */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* GPU-accelerated transforms - offload from CPU */
+  .transform-gpu {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Optimize scrolling performance */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Content visibility for off-screen optimization */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 500px;
+  }
+
   body {
     @apply font-sans antialiased;
     min-height: 100vh;
+    overflow-x: hidden;
+    /* Optimize text rendering */
+    text-rendering: optimizeSpeed;
   }
 
   .dark body {

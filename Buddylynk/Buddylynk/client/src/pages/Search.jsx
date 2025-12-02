@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { SafeAvatar } from "../components/SafeImage";
 import HamsterLoader from "../components/HamsterLoader";
+import { containerVariants, itemVariants, fadeVariants, fastTransition } from "../utils/animations";
 
 const Search = () => {
     const { user } = useAuth();

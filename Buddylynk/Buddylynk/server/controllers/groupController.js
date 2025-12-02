@@ -171,6 +171,22 @@ const getGroupByInvite = async (req, res) => {
         const isMember = group.members?.includes(userId);
         
         // Return limited info for preview (like Telegram)
+        // For public channels, show recent posts preview even for non-members
+        let previewPosts = [];
+        if (isMember) {
+            previewPosts = group.posts || [];
+        } else if (group.visibility === 'public' || group.type === 'channel') {
+            // Show last 20 posts for preview (like Telegram public channels)
+            previewPosts = (group.posts || []).slice(0, 20).map(post => ({
+                postId: post.postId,
+                content: post.content,
+                media: post.media,
+                createdAt: post.createdAt,
+                username: post.username,
+                // Don't expose likes/comments for non-members
+            }));
+        }
+        
         const previewGroup = {
             groupId: group.groupId,
             name: group.name,
@@ -181,8 +197,7 @@ const getGroupByInvite = async (req, res) => {
             memberCount: group.members?.length || 0,
             creatorName: group.creatorName,
             isMember,
-            // Don't expose posts until joined
-            posts: isMember ? group.posts : [],
+            posts: previewPosts,
             members: group.members || [],
         };
         

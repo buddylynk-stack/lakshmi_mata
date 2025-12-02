@@ -17,6 +17,7 @@ import InstagramMediaFrame from "../components/InstagramMediaFrame";
 import InstagramImageViewer from "../components/InstagramImageViewer";
 import { uploadViaServer } from "../utils/serverUpload";
 import LoginPrompt from "../components/LoginPrompt";
+import { containerVariants, itemVariants, scaleVariants, fadeVariants, fastTransition } from "../utils/animations";
 
 const Home = () => {
     const navigate = useNavigate();
@@ -748,6 +749,7 @@ const Home = () => {
     };
 
     const openViewer = (mediaItems, index = 0, post) => {
+        console.log('🖼️ Opening image viewer:', { mediaItems, index, post });
         setViewerImages(mediaItems || []);
         setViewerIndex(index);
         if (post) {
