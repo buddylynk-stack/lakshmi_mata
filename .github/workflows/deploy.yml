@@ -1,0 +1,244 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 300s
+          command_timeout: 30m
+          envs: AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,S3_BUCKET_NAME,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,JWT_SECRET
+          script: |
+            set -e
+            echo "🚀 Starting deployment at $(date)"
+            
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # Navigate to project directory
+            cd ~/lakshmi_mata
+            
+            # Stash any local changes and pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+            
+            # Auto-detect the correct folder path
+            echo "🔍 Auto-detecting project folder..."
+            if [ -d "Buddylynk/Buddylynk" ]; then
+                PROJECT_PATH="Buddylynk/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
+            elif [ -d "Buddylynk_P2.6/Buddylynk" ]; then
+                PROJECT_PATH="Buddylynk_P2.6/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
+            else
+                echo "❌ Could not find project folder!"
+                exit 1
+            fi
+            
+            # Clean up old folders (keep only the current one)
+            echo "🧹 Cleaning up old folders..."
+            for dir in Buddylynk*; do
+                if [ -d "$dir" ] && [ "$dir" != "${PROJECT_PATH%%/*}" ]; then
+                    echo "🗑️  Removing old folder: $dir"
+                    rm -rf "$dir"
+                fi
+            done
+            
+            # Update Nginx configuration with WebSocket support
+            echo "📝 Updating Nginx configuration with WebSocket support..."
+            NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
+            
+            # Create proper Nginx config with WebSocket support for Socket.IO
+            sudo tee /etc/nginx/sites-available/buddylynk > /dev/null << 'NGINXEOF'
+            server {
+                listen 80;
+                listen [::]:80;
+                server_name buddylynk.com www.buddylynk.com;
+                return 301 https://$server_name$request_uri;
+            }
+
+            server {
+                listen 443 ssl http2;
+                listen [::]:443 ssl http2;
+                server_name buddylynk.com www.buddylynk.com;
+
+                # SSL certificates (adjust paths as needed)
+                ssl_certificate /etc/letsencrypt/live/buddylynk.com/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/buddylynk.com/privkey.pem;
+
+                # SSL settings
+                ssl_protocols TLSv1.2 TLSv1.3;
+                ssl_prefer_server_ciphers on;
+                ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+
+                # API routes
+                location /api/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_connect_timeout 60s;
+                    proxy_send_timeout 60s;
+                    proxy_read_timeout 60s;
+                    client_max_body_size 500M;
+                }
+
+                # Socket.IO - WebSocket support (CRITICAL FOR REAL-TIME)
+                location /socket.io/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_read_timeout 86400;
+                    proxy_send_timeout 86400;
+                }
+
+                # Uploads folder
+                location /uploads/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                }
+
+                # Frontend - React app
+                root NGINX_PATH_PLACEHOLDER;
+                index index.html;
+
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+
+                # Gzip compression
+                gzip on;
+                gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+            }
+            NGINXEOF
+
+            # Replace placeholder with actual path
+            sudo sed -i "s|NGINX_PATH_PLACEHOLDER|$NGINX_PATH|g" /etc/nginx/sites-available/buddylynk
+            
+            # Enable the site
+            sudo ln -sf /etc/nginx/sites-available/buddylynk /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            
+            echo "✅ Nginx config updated with WebSocket support"
+            
+            # Test Nginx configuration
+            echo "🧪 Testing Nginx configuration..."
+            sudo nginx -t
+            
+            # Stop all PM2 processes
+            echo "🛑 Stopping PM2 processes..."
+            pm2 stop all || true
+            pm2 delete all || true
+            
+            # Update backend
+            echo "🔧 Installing backend dependencies..."
+            cd ~/lakshmi_mata/$PROJECT_PATH/server
+            npm install --production --legacy-peer-deps
+            
+            # Update frontend
+            echo "🎨 Building frontend..."
+            cd ~/lakshmi_mata/$PROJECT_PATH/client
+            npm install --legacy-peer-deps
+            npm run build
+            
+            # Check and start Redis
+            echo "🔴 Checking Redis status..."
+            if ! systemctl is-active --quiet redis-server; then
+                echo "Starting Redis..."
+                sudo systemctl start redis-server
+                sudo systemctl enable redis-server
+            fi
+            echo "✅ Redis is running"
+            
+            # Ensure .env file exists with environment variables
+            echo "📝 Setting up environment variables..."
+            cd ~/lakshmi_mata/$PROJECT_PATH/server
+            
+            # Always update .env to ensure all variables are present
+            echo "Creating/updating .env file..."
+            cat > .env << EOF
+# AWS Configuration
+AWS_REGION=${AWS_REGION:-us-east-1}
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+# S3 Bucket Name
+S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+# Server Configuration
+PORT=5000
+JWT_SECRET=${JWT_SECRET}
+
+# Redis Configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# NSFW Detection API
+NSFW_API_URL=http://35.227.39.141:8002/nsfw
+ENABLE_NSFW_CHECK=true
+
+# ML Recommendation API
+RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
+EOF
+            echo "✅ .env file updated with all settings"
+            
+            # Start backend with PM2
+            echo "🚀 Starting backend server..."
+            pm2 start index.js --name buddylynk-server
+            pm2 save
+            
+            # Give permissions
+            chmod -R 755 ~/lakshmi_mata
+            
+            # Restart Nginx
+            echo "🔄 Restarting Nginx..."
+            sudo systemctl restart nginx
+            
+            echo "✅ Deployment completed successfully at $(date)!"
+            
+            # Show status
+            pm2 status
+            
+            # Show recent logs
+            echo "📋 Recent server logs:"
+            pm2 logs buddylynk-server --lines 10 --nostream || true
+            
+            echo "🌐 Site is live at https://buddylynk.com"
