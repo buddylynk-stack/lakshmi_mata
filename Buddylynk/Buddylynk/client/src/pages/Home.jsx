@@ -19,6 +19,9 @@ import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
 import { uploadViaServer } from "../utils/serverUpload";
 import LoginPrompt from "../components/LoginPrompt";
 import { containerVariants, itemVariants, scaleVariants, fadeVariants, fastTransition } from "../utils/animations";
+// Shadcn-style UI Components
+import UploadProgress from "../components/ui/UploadProgress";
+import AlertDialog from "../components/ui/AlertDialog";
 
 const Home = () => {
     const navigate = useNavigate();
@@ -27,6 +30,7 @@ const Home = () => {
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [uploadStage, setUploadStage] = useState("uploading"); // uploading, checking, saving, complete
     const [newPost, setNewPost] = useState("");
     const [media, setMedia] = useState([]);
     const [showPollForm, setShowPollForm] = useState(false);
@@ -230,6 +234,7 @@ const Home = () => {
             setUploading(true);
             setUploadProgress(0);
             setUploadSuccess(false);
+            setUploadStage("uploading");
 
             // Upload media files directly to S3 (bypasses EC2 for unlimited file size)
             const uploadedMedia = [];
@@ -251,6 +256,7 @@ const Home = () => {
             }
 
             setUploadProgress(85);
+            setUploadStage("checking");
 
             // Prepare post data (send only URLs, not files)
             const postData = {
@@ -267,6 +273,7 @@ const Home = () => {
             }
 
             setUploadProgress(90);
+            setUploadStage("saving");
 
             // Create post with media URLs (small JSON payload)
             // Note: Post will be added via real-time Redis broadcast (useRealTimePosts)
@@ -279,17 +286,20 @@ const Home = () => {
             
             // Show success and hide upload indicator
             setUploadProgress(100);
+            setUploadStage("complete");
             setUploadSuccess(true);
             toast.success("Post created successfully! 🎉");
             setTimeout(() => {
                 setUploading(false);
                 setUploadSuccess(false);
                 setUploadProgress(0);
-            }, 1500);
+                setUploadStage("uploading");
+            }, 2000);
         } catch (error) {
             console.error("Error creating post:", error);
             toast.error("Failed to create post");
             setUploading(false);
+            setUploadStage("uploading");
         }
     };
 
@@ -1181,37 +1191,13 @@ const Home = () => {
                         </div>
                     </form>
                     
-                    {/* Upload Progress Bar */}
-                    <AnimatePresence>
-                        {uploading && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-4 p-4 dark:bg-dark-lighter bg-gray-100 rounded-xl"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm dark:text-gray-300 text-gray-700 font-medium">
-                                        {uploadSuccess ? '✅ Post created!' : uploadProgress < 80 ? '📤 Uploading media...' : uploadProgress < 90 ? '🔍 Checking content...' : '💾 Saving post...'}
-                                    </span>
-                                    <span className="text-sm dark:text-primary text-primary font-bold">{uploadProgress}%</span>
-                                </div>
-                                <div className="w-full h-2 dark:bg-dark bg-gray-300 rounded-full overflow-hidden">
-                                    <motion.div
-                                        className={`h-full rounded-full ${uploadSuccess ? 'bg-green-500' : 'bg-gradient-to-r from-primary to-secondary'}`}
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${uploadProgress}%` }}
-                                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                                    />
-                                </div>
-                                {!uploadSuccess && (
-                                    <p className="text-xs dark:text-gray-500 text-gray-500 mt-2">
-                                        Please wait while your post is being processed...
-                                    </p>
-                                )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    {/* Shadcn-style Upload Progress */}
+                    <UploadProgress 
+                        isUploading={uploading}
+                        progress={uploadProgress}
+                        isSuccess={uploadSuccess}
+                        stage={uploadStage}
+                    />
                 </motion.div>
                 ) : (
                     /* Login Prompt for non-logged-in users */
@@ -1847,8 +1833,8 @@ const Home = () => {
                 )}
             </AnimatePresence>
 
-            {/* Clear Notifications Confirmation Modal */}
-            <ConfirmModal
+            {/* Shadcn-style Clear Notifications Dialog */}
+            <AlertDialog
                 isOpen={showClearConfirm}
                 onClose={() => setShowClearConfirm(false)}
                 onConfirm={async () => {
@@ -1861,14 +1847,14 @@ const Home = () => {
                     }
                 }}
                 title="Clear All Notifications?"
-                message="Are you sure you want to clear all notifications? This cannot be undone."
+                description="Are you sure you want to clear all notifications? This cannot be undone."
                 confirmText="Clear All"
                 cancelText="Cancel"
-                type="danger"
+                variant="destructive"
             />
 
-            {/* Delete Post Confirmation Modal */}
-            <ConfirmModal
+            {/* Shadcn-style Delete Post Dialog */}
+            <AlertDialog
                 isOpen={!!showDeletePostConfirm}
                 onClose={() => setShowDeletePostConfirm(null)}
                 onConfirm={async () => {
@@ -1878,14 +1864,14 @@ const Home = () => {
                     }
                 }}
                 title="Delete Post?"
-                message="Are you sure you want to delete this post? This action cannot be undone."
+                description="Are you sure you want to delete this post? This action cannot be undone."
                 confirmText="Delete"
                 cancelText="Cancel"
-                type="danger"
+                variant="destructive"
             />
 
-            {/* Delete Comment Confirmation Modal */}
-            <ConfirmModal
+            {/* Shadcn-style Delete Comment Dialog */}
+            <AlertDialog
                 isOpen={!!showDeleteCommentConfirm}
                 onClose={() => setShowDeleteCommentConfirm(null)}
                 onConfirm={async () => {
@@ -1895,14 +1881,14 @@ const Home = () => {
                     }
                 }}
                 title="Delete Comment?"
-                message="Are you sure you want to delete this comment?"
+                description="Are you sure you want to delete this comment?"
                 confirmText="Delete"
                 cancelText="Cancel"
-                type="danger"
+                variant="destructive"
             />
 
-            {/* Block User Confirmation Modal */}
-            <ConfirmModal
+            {/* Shadcn-style Block User Dialog */}
+            <AlertDialog
                 isOpen={!!showBlockUserConfirm}
                 onClose={() => setShowBlockUserConfirm(null)}
                 onConfirm={async () => {
@@ -1912,10 +1898,10 @@ const Home = () => {
                     }
                 }}
                 title={`Block ${showBlockUserConfirm?.username || 'User'}?`}
-                message="You won't see their posts anymore. You can unblock them later from Settings."
+                description="You won't see their posts anymore. You can unblock them later from Settings."
                 confirmText="Block"
                 cancelText="Cancel"
-                type="warning"
+                variant="warning"
             />
 
             {/* Login Prompt Modal */}
