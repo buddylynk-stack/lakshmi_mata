@@ -34,17 +34,13 @@ jobs:
           script: |
             set -e
             echo "Starting deployment"
-            
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            
             cd ~/lakshmi_mata
-            
             echo "Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
-            
             echo "Detecting project folder..."
             if [ -d "Buddylynk/Buddylynk" ]; then
               PROJECT_PATH="Buddylynk/Buddylynk"
@@ -55,55 +51,42 @@ jobs:
               exit 1
             fi
             echo "Found project at $PROJECT_PATH"
-            
             NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
-            
             echo "Stopping PM2..."
             pm2 stop all || true
             pm2 delete all || true
-            
             echo "Installing backend dependencies..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
             npm install --production --legacy-peer-deps
-            
             echo "Building frontend..."
             cd ~/lakshmi_mata/$PROJECT_PATH/client
             npm install --legacy-peer-deps
             npm run build
-            
             echo "Checking Redis..."
             if ! systemctl is-active --quiet redis-server; then
               sudo systemctl start redis-server
               sudo systemctl enable redis-server
             fi
-            
             echo "Setting up environment..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            
-            cat > .env << ENVEOF
-AWS_REGION=${AWS_REGION:-us-east-1}
-AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-PORT=5000
-JWT_SECRET=${JWT_SECRET}
-REDIS_HOST=localhost
-REDIS_PORT=6379
-NSFW_API_URL=http://35.227.39.141:8002/nsfw
-ENABLE_NSFW_CHECK=true
-RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
-ENVEOF
-            
+            echo "AWS_REGION=${AWS_REGION:-us-east-1}" > .env
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> .env
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
+            echo "S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}" >> .env
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env
+            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env
+            echo "PORT=5000" >> .env
+            echo "JWT_SECRET=${JWT_SECRET}" >> .env
+            echo "REDIS_HOST=localhost" >> .env
+            echo "REDIS_PORT=6379" >> .env
+            echo "NSFW_API_URL=http://35.227.39.141:8002/nsfw" >> .env
+            echo "ENABLE_NSFW_CHECK=true" >> .env
+            echo "RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend" >> .env
             echo "Starting backend..."
             pm2 start index.js --name buddylynk-server
             pm2 save
-            
             chmod -R 755 ~/lakshmi_mata
-            
             echo "Restarting Nginx..."
             sudo systemctl restart nginx
-            
             echo "Deployment completed!"
             pm2 status
