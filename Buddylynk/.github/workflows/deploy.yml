@@ -187,33 +187,38 @@ jobs:
             # Ensure .env file exists with environment variables
             echo "📝 Setting up environment variables..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            if [ ! -f .env ]; then
-                echo "Creating .env file..."
-                cat > .env << EOF
-            # AWS Configuration
-            AWS_REGION=${AWS_REGION:-us-east-1}
-            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
             
-            # S3 Bucket Name
-            S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
-            
-            # Google OAuth Configuration
-            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-            
-            # Server Configuration
-            PORT=5000
-            JWT_SECRET=${JWT_SECRET}
-            
-            # Redis Configuration
-            REDIS_HOST=localhost
-            REDIS_PORT=6379
-            EOF
-                echo "✅ .env file created"
-            else
-                echo "✅ .env file already exists"
-            fi
+            # Always update .env to ensure all variables are present
+            echo "Creating/updating .env file..."
+            cat > .env << EOF
+# AWS Configuration
+AWS_REGION=${AWS_REGION:-us-east-1}
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+# S3 Bucket Name
+S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+# Server Configuration
+PORT=5000
+JWT_SECRET=${JWT_SECRET}
+
+# Redis Configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# NSFW Detection API
+NSFW_API_URL=http://35.227.39.141:8002/nsfw
+ENABLE_NSFW_CHECK=true
+
+# ML Recommendation API
+RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
+EOF
+            echo "✅ .env file updated with all settings"
             
             # Start backend with PM2
             echo "🚀 Starting backend server..."
