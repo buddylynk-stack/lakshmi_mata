@@ -97,18 +97,39 @@ const GroupDetail = () => {
         if (!newPost.trim() && selectedMedia.length === 0) return;
         if (isSending) return; // Prevent duplicate submissions
 
+        const messageContent = newPost;
         setIsSending(true);
+        
+        // Optimistic update - add message immediately to UI
+        const tempPost = {
+            postId: `temp-${Date.now()}`,
+            userId: user.userId,
+            username: user.username,
+            content: messageContent,
+            createdAt: new Date().toISOString(),
+            sending: true
+        };
+        
+        // Add temp message to group posts immediately (no page refresh)
+        if (selectedMedia.length === 0) {
+            setGroup(prev => ({
+                ...prev,
+                posts: [...(prev.posts || []), tempPost]
+            }));
+            setNewPost(""); // Clear input immediately
+        }
+        
         try {
             const token = localStorage.getItem("token");
             
             // Text-only post (no media)
             if (selectedMedia.length === 0) {
-                await axios.post(`/api/groups/${id}/posts`, 
-                    { content: newPost },
+                const res = await axios.post(`/api/groups/${id}/posts`, 
+                    { content: messageContent },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
-                setNewPost("");
-                fetchGroup();
+                // Replace temp post with real one from response (WebSocket will also update)
+                // No fetchGroup() needed - WebSocket handles real-time sync
                 return;
             }
             
@@ -122,7 +143,7 @@ const GroupDetail = () => {
             for (let i = 0; i < fileChunks.length; i++) {
                 const chunk = fileChunks[i];
                 const formData = new FormData();
-                formData.append("content", i === 0 ? newPost : "");
+                formData.append("content", i === 0 ? messageContent : "");
                 chunk.forEach((file) => {
                     formData.append("media", file);
                 });
@@ -142,10 +163,16 @@ const GroupDetail = () => {
             setNewPost("");
             setSelectedMedia([]);
             setMediaPreviews([]);
-            fetchGroup();
+            // No fetchGroup() - WebSocket handles real-time sync
         } catch (error) {
             console.error("Error creating post:", error);
             toast.error(error.response?.data?.message || "Failed to send message");
+            // Remove temp post on error
+            setGroup(prev => ({
+                ...prev,
+                posts: (prev.posts || []).filter(p => p.postId !== tempPost.postId)
+            }));
+            setNewPost(messageContent); // Restore message
         } finally {
             setIsSending(false);
         }
