@@ -1180,6 +1180,38 @@ const Home = () => {
                             </div>
                         </div>
                     </form>
+                    
+                    {/* Upload Progress Bar */}
+                    <AnimatePresence>
+                        {uploading && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-4 p-4 dark:bg-dark-lighter bg-gray-100 rounded-xl"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm dark:text-gray-300 text-gray-700 font-medium">
+                                        {uploadSuccess ? '✅ Post created!' : uploadProgress < 80 ? '📤 Uploading media...' : uploadProgress < 90 ? '🔍 Checking content...' : '💾 Saving post...'}
+                                    </span>
+                                    <span className="text-sm dark:text-primary text-primary font-bold">{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full h-2 dark:bg-dark bg-gray-300 rounded-full overflow-hidden">
+                                    <motion.div
+                                        className={`h-full rounded-full ${uploadSuccess ? 'bg-green-500' : 'bg-gradient-to-r from-primary to-secondary'}`}
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${uploadProgress}%` }}
+                                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                                    />
+                                </div>
+                                {!uploadSuccess && (
+                                    <p className="text-xs dark:text-gray-500 text-gray-500 mt-2">
+                                        Please wait while your post is being processed...
+                                    </p>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </motion.div>
                 ) : (
                     /* Login Prompt for non-logged-in users */
