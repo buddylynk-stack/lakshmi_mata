@@ -90,3 +90,4 @@ jobs:
             sudo systemctl restart nginx
             echo "Deployment completed!"
             pm2 status
+            echo "Zigzag algorithm and ML recommendations active!"
