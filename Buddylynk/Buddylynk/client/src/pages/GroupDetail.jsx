@@ -100,23 +100,29 @@ const GroupDetail = () => {
         setIsSending(true);
         try {
             const token = localStorage.getItem("token");
-            const MAX_FILES_PER_POST = 20;
             
-            // Split files into chunks of 20 if more than 20 files
+            // Text-only post (no media)
+            if (selectedMedia.length === 0) {
+                await axios.post(`/api/groups/${id}/posts`, 
+                    { content: newPost },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                setNewPost("");
+                fetchGroup();
+                return;
+            }
+            
+            // Media post
+            const MAX_FILES_PER_POST = 20;
             const fileChunks = [];
             for (let i = 0; i < selectedMedia.length; i += MAX_FILES_PER_POST) {
                 fileChunks.push(selectedMedia.slice(i, i + MAX_FILES_PER_POST));
             }
             
-            // Send each chunk as a separate post
             for (let i = 0; i < fileChunks.length; i++) {
                 const chunk = fileChunks[i];
                 const formData = new FormData();
-                
-                // Only add content to first post
                 formData.append("content", i === 0 ? newPost : "");
-                
-                // Append files for this chunk
                 chunk.forEach((file) => {
                     formData.append("media", file);
                 });
@@ -139,7 +145,7 @@ const GroupDetail = () => {
             fetchGroup();
         } catch (error) {
             console.error("Error creating post:", error);
-            toast.error("Failed to send media");
+            toast.error(error.response?.data?.message || "Failed to send message");
         } finally {
             setIsSending(false);
         }
