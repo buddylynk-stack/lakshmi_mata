@@ -9,6 +9,7 @@ import { SafeImage } from "../components/SafeImage";
 import ConfirmModal from "../components/ConfirmModal";
 import ChannelInfo from "../components/ChannelInfo";
 import VideoPlayer from "../components/VideoPlayer";
+import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
 import { containerVariants, itemVariants, scaleVariants, slideUpVariants, fastTransition } from "../utils/animations";
 import axios from "axios";
 
@@ -372,10 +373,12 @@ const GroupDetail = () => {
 
             </div>
 
-            {/* Messages Area with WhatsApp Background Pattern */}
+            {/* Messages Area with WhatsApp Background Pattern - Optimized for mobile scroll */}
             <div 
-                className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 space-y-3"
+                className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 space-y-3 scroll-optimized"
                 style={{
+                    WebkitOverflowScrolling: 'touch',
+                    overscrollBehavior: 'contain',
                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                 }}
             >
@@ -385,11 +388,10 @@ const GroupDetail = () => {
                         const isOwn = post.userId === user.userId;
                         
                         return (
-                            <motion.div
+                            <div
                                 key={post.postId}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
+                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative scroll-item`}
+                                style={{ contain: 'layout style paint' }}
                             >
                                 <div className="relative">
                                 <div className={`max-w-[100vw] sm:max-w-[100vw] md:max-w-[100vw] lg:max-w-[100vw] px-3 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
@@ -407,61 +409,67 @@ const GroupDetail = () => {
                                                 // Magic Frame Layout - preserves natural aspect ratios
                                                 post.media.length === 1 ? (
                                                     // Single media - full width with magic frame
-                                                    <div className="w-full">
-                                                        {post.media[0].type === 'video' ? (
-                                                            <div className="w-full">
-                                                                <VideoPlayer src={post.media[0].url} className="w-full" />
-                                                            </div>
-                                                        ) : post.media[0].type === 'image' ? (
-                                                            <div className="w-full magic-frame-container">
-                                                                <SafeImage 
-                                                                    src={post.media[0].url} 
-                                                                    alt="Media" 
-                                                                    onClick={() => setFullScreenImage(post.media[0].url)} 
-                                                                    className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" 
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
-                                                        )}
-                                                    </div>
+                                                    <SensitiveMediaWrapper isSensitive={post.media[0].isNsfw || post.isNsfw}>
+                                                        <div className="w-full">
+                                                            {post.media[0].type === 'video' ? (
+                                                                <div className="w-full">
+                                                                    <VideoPlayer src={post.media[0].url} className="w-full" />
+                                                                </div>
+                                                            ) : post.media[0].type === 'image' ? (
+                                                                <div className="w-full magic-frame-container">
+                                                                    <SafeImage 
+                                                                        src={post.media[0].url} 
+                                                                        alt="Media" 
+                                                                        onClick={() => setFullScreenImage(post.media[0].url)} 
+                                                                        className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" 
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <a href={post.media[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg"><Paperclip className="w-4 h-4" /><span className="truncate">{post.media[0].name || 'File'}</span></a>
+                                                            )}
+                                                        </div>
+                                                    </SensitiveMediaWrapper>
                                                 ) : (
                                                     // Multiple media - full width magic frame container
                                                     <div className="w-full magic-frame-container">
                                                         <div className="flex flex-col gap-1 bg-black">
                                                             {post.media.map((mediaItem, idx) => (
-                                                                <div key={idx} className="w-full">
-                                                                    {mediaItem.type === 'video' ? (
-                                                                        <VideoPlayer src={mediaItem.url} className="w-full" />
-                                                                    ) : mediaItem.type === 'image' ? (
-                                                                        <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" />
-                                                                    ) : (
-                                                                        <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
-                                                                    )}
-                                                                </div>
+                                                                <SensitiveMediaWrapper key={idx} isSensitive={mediaItem.isNsfw || post.isNsfw}>
+                                                                    <div className="w-full">
+                                                                        {mediaItem.type === 'video' ? (
+                                                                            <VideoPlayer src={mediaItem.url} className="w-full" />
+                                                                        ) : mediaItem.type === 'image' ? (
+                                                                            <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" />
+                                                                        ) : (
+                                                                            <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
+                                                                        )}
+                                                                    </div>
+                                                                </SensitiveMediaWrapper>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )
                                             ) : (
                                                 // Old format - single media (backward compatibility)
-                                                <div className="flex justify-center">
-                                                    {post.mediaType === 'video' || (typeof post.media === 'string' && post.media.includes('.mp4')) ? (
-                                                        <VideoPlayer src={post.media} className="max-w-full max-h-[400px] rounded-lg" />
-                                                    ) : post.mediaType === 'image' || (typeof post.media === 'string' && post.media.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
-                                                        <SafeImage 
-                                                            src={post.media} 
-                                                            alt="Media" 
-                                                            onClick={() => setFullScreenImage(post.media)}
-                                                            className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
-                                                        />
-                                                    ) : (
-                                                        <a href={post.media} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg">
-                                                            <Paperclip className="w-4 h-4" />
-                                                            <span className="text-sm">View File</span>
-                                                        </a>
-                                                    )}
-                                                </div>
+                                                <SensitiveMediaWrapper isSensitive={post.isNsfw}>
+                                                    <div className="flex justify-center">
+                                                        {post.mediaType === 'video' || (typeof post.media === 'string' && post.media.includes('.mp4')) ? (
+                                                            <VideoPlayer src={post.media} className="max-w-full max-h-[400px] rounded-lg" />
+                                                        ) : post.mediaType === 'image' || (typeof post.media === 'string' && post.media.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                                                            <SafeImage 
+                                                                src={post.media} 
+                                                                alt="Media" 
+                                                                onClick={() => setFullScreenImage(post.media)}
+                                                                className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
+                                                            />
+                                                        ) : (
+                                                            <a href={post.media} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg">
+                                                                <Paperclip className="w-4 h-4" />
+                                                                <span className="text-sm">View File</span>
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </SensitiveMediaWrapper>
                                             )}
                                         </div>
                                     )}
@@ -562,7 +570,7 @@ const GroupDetail = () => {
 
                                 </div>
                                 </div>
-                            </motion.div>
+                            </div>
                         );
                     })
                 ) : (

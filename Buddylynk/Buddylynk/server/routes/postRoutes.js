@@ -2,8 +2,39 @@ const express = require("express");
 const { createPost, getPosts, getPostById, getFeed, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics, trackUserInteraction } = require("../controllers/postController");
 const { protect, optionalProtect } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/uploadMiddleware");
+const { healthCheck: recommendationHealth, getStats: getRecommendationStats } = require("../services/recommendationService");
 
 const router = express.Router();
+
+// Health check endpoint for ML services
+router.get("/health", async (req, res) => {
+    try {
+        const recommendationStatus = await recommendationHealth();
+        const nsfwApiUrl = process.env.NSFW_API_URL || 'not configured';
+        const recommendationApiUrl = process.env.RECOMMENDATION_API_URL || 'not configured';
+        
+        res.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            services: {
+                recommendation: {
+                    ...recommendationStatus,
+                    apiUrl: recommendationApiUrl
+                },
+                nsfw: {
+                    apiUrl: nsfwApiUrl,
+                    enabled: process.env.ENABLE_NSFW_CHECK !== 'false'
+                }
+            },
+            stats: getRecommendationStats()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            error: error.message
+        });
+    }
+});
 
 router.get("/", getPosts);
 router.get("/feed", optionalProtect, getFeed); // ML-powered feed with zigzag algorithm (MUST be before /:id)
@@ -23,5 +54,8 @@ router.post("/:id/view", optionalProtect, viewPost); // Optional auth - tracks b
 router.get("/:id/analytics", protect, getPostAnalytics); // Get view analytics (owner only)
 router.put("/:id", protect, upload.array("media", 10), editPost); // Allow up to 10 files
 router.delete("/:id", protect, deletePost);
+
+// Admin endpoint to rescan all posts for NSFW content
+router.post("/admin/rescan-nsfw", protect, require("../controllers/postController").rescanPostsForNSFW);
 
 module.exports = router;

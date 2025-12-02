@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
     Edit2, UserPlus, UserCheck, MessageCircle, Calendar, MoreVertical, Flag, 
     Grid3X3, BookOpen, Heart, Share2, MessageSquare, MapPin, Link as LinkIcon,
-    Camera, Verified, Sparkles
+    Camera, Verified, Sparkles, Trash2
 } from "lucide-react";
 import { SafeAvatar, SafeImage } from "../components/SafeImage";
 import ConfirmModal from "../components/ConfirmModal";
@@ -25,6 +25,10 @@ const ProfileNew = () => {
     const [activeTab, setActiveTab] = useState("posts");
     const [showMenu, setShowMenu] = useState(false);
     const [showReportConfirm, setShowReportConfirm] = useState(false);
+    const [showPostMenu, setShowPostMenu] = useState({});
+    const [editingPost, setEditingPost] = useState(null);
+    const [editContent, setEditContent] = useState("");
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
     const toast = useToast();
     
     const isOwnProfile = user?.userId === id;
@@ -116,6 +120,73 @@ const ProfileNew = () => {
         toast.success("User reported. Thank you for helping keep our community safe.");
     };
 
+    // Post menu handlers
+    const togglePostMenu = (postId, e) => {
+        if (e) e.stopPropagation();
+        setShowPostMenu(prev => ({ ...prev, [postId]: !prev[postId] }));
+    };
+
+    const handleEditPost = (post, e) => {
+        if (e) e.stopPropagation();
+        setEditingPost(post.postId);
+        setEditContent(post.content || "");
+        setShowPostMenu({});
+    };
+
+    const handleSaveEdit = async (postId) => {
+        if (!editContent.trim()) return;
+        try {
+            const token = localStorage.getItem("token");
+            const formData = new FormData();
+            formData.append("content", editContent);
+            const res = await axios.put(`/api/posts/${postId}`, formData, { 
+                headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } 
+            });
+            setProfile(prev => ({ ...prev, posts: prev.posts.map(p => p.postId === postId ? res.data : p) }));
+            setEditingPost(null);
+            setEditContent("");
+            toast.success("Post updated successfully");
+        } catch (error) {
+            console.error("Error editing post:", error);
+            toast.error("Failed to update post");
+        }
+    };
+
+    const handleCancelEdit = () => { 
+        setEditingPost(null); 
+        setEditContent(""); 
+    };
+
+    const confirmDeletePost = (postId, e) => {
+        if (e) e.stopPropagation();
+        setShowDeleteConfirm(postId);
+        setShowPostMenu({});
+    };
+
+    const handleDeletePost = async (postId) => {
+        try {
+            const token = localStorage.getItem("token");
+            await axios.delete(`/api/posts/${postId}`, { headers: { Authorization: `Bearer ${token}` } });
+            setProfile(prev => ({ ...prev, posts: prev.posts.filter(p => p.postId !== postId) }));
+            setShowDeleteConfirm(null);
+            toast.success("Post deleted successfully");
+        } catch (error) {
+            console.error("Error deleting post:", error);
+            toast.error("Failed to delete post");
+        }
+    };
+
+    // Close post menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => {
+            if (Object.keys(showPostMenu).some(key => showPostMenu[key])) {
+                setShowPostMenu({});
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [showPostMenu]);
+
     if (loading) {
         return (
             <div className="min-h-screen md:pl-72 pt-4 pb-20 dark:bg-dark bg-gray-50">
@@ -148,7 +219,7 @@ const ProfileNew = () => {
     const totalLikes = profile.posts?.reduce((sum, post) => sum + (post.likes || 0), 0) || 0;
 
     return (
-        <div className="min-h-screen md:pl-72 pb-20 dark:bg-dark bg-gray-50">
+        <div className="min-h-screen md:pl-72 pb-20 dark:bg-dark bg-gray-50 scroll-optimized" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
 
             {/* Hero Section with Cover */}
             <div className="relative">
@@ -390,12 +461,68 @@ const ProfileNew = () => {
                                                     {new Date(post.createdAt).toLocaleDateString('en-US', { 
                                                         month: 'short', day: 'numeric', year: 'numeric' 
                                                     })}
+                                                    {post.editedAt && <span className="ml-1">(edited)</span>}
                                                 </p>
                                             </div>
+                                            
+                                            {/* 3-dot menu for own posts */}
+                                            {isOwnProfile && (
+                                                <div className="relative">
+                                                    <button 
+                                                        onClick={(e) => togglePostMenu(post.postId, e)} 
+                                                        className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                    >
+                                                        <MoreVertical className="w-5 h-5" />
+                                                    </button>
+                                                    <AnimatePresence>
+                                                        {showPostMenu[post.postId] && (
+                                                            <motion.div 
+                                                                initial={{ opacity: 0, scale: 0.95 }} 
+                                                                animate={{ opacity: 1, scale: 1 }} 
+                                                                exit={{ opacity: 0, scale: 0.95 }} 
+                                                                className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#202c33] rounded-lg shadow-lg border border-gray-200 dark:border-white/10 z-50 overflow-hidden"
+                                                            >
+                                                                <button 
+                                                                    onClick={(e) => handleEditPost(post, e)} 
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                    <span>Edit Post</span>
+                                                                </button>
+                                                                <button 
+                                                                    onClick={(e) => confirmDeletePost(post.postId, e)} 
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                    <span>Delete Post</span>
+                                                                </button>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Post Content */}
-                                        {post.content && (
+                                        {editingPost === post.postId ? (
+                                            <div className="px-4 pb-3 space-y-3">
+                                                <textarea 
+                                                    className="w-full min-h-[100px] p-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none" 
+                                                    value={editContent} 
+                                                    onChange={(e) => setEditContent(e.target.value)} 
+                                                    placeholder="What's on your mind?" 
+                                                    autoFocus 
+                                                />
+                                                <div className="flex gap-2 justify-end">
+                                                    <button onClick={handleCancelEdit} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                                                        Cancel
+                                                    </button>
+                                                    <button onClick={() => handleSaveEdit(post.postId)} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50" disabled={!editContent.trim()}>
+                                                        Save Changes
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : post.content && (
                                             <p className="px-4 pb-3 dark:text-gray-200 text-gray-800 whitespace-pre-wrap">
                                                 {post.content}
                                             </p>
@@ -562,6 +689,17 @@ const ProfileNew = () => {
                 confirmText="Report"
                 cancelText="Cancel"
                 type="warning"
+            />
+
+            {/* Delete Post Confirmation Modal */}
+            <ConfirmModal
+                isOpen={!!showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(null)}
+                onConfirm={() => handleDeletePost(showDeleteConfirm)}
+                title="Delete Post"
+                message="Are you sure you want to delete this post? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
             />
         </div>
     );

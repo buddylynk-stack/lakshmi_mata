@@ -25,10 +25,28 @@
     }
   }
 
-  /* Optimize scrolling performance */
+  /* Optimize scrolling performance - CRITICAL for mobile */
   .scroll-smooth {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile scroll optimization */
+  .mobile-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    transform: translateZ(0);
+    will-change: scroll-position;
+  }
+
+  /* Prevent scroll jank on mobile */
+  .scroll-optimized {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    transform: translate3d(0, 0, 0);
+    scroll-behavior: smooth;
   }
 
   /* Content visibility for off-screen optimization */
@@ -37,12 +55,59 @@
     contain-intrinsic-size: 0 500px;
   }
 
+  /* Optimize list items for scroll performance */
+  .scroll-item {
+    contain: layout style paint;
+    will-change: auto;
+  }
+
+  /* Smooth scrolling for all devices */
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply font-sans antialiased;
     min-height: 100vh;
     overflow-x: hidden;
+    scroll-behavior: smooth;
     /* Optimize text rendering */
     text-rendering: optimizeSpeed;
+  }
+
+  /* Smooth mouse wheel scrolling on PC */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(155, 155, 155, 0.5);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(155, 155, 155, 0.7);
+  }
+
+  /* Dark mode scrollbar */
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 100, 100, 0.5);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(100, 100, 100, 0.7);
   }
 
   .dark body {

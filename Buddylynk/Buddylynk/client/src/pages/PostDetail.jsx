@@ -9,6 +9,7 @@ import { SafeAvatar, RetryImage } from "../components/SafeImage";
 import VideoPlayer from "../components/VideoPlayer";
 import LoadingIndicator from "../components/LoadingIndicator";
 import InstagramMediaFrame from "../components/InstagramMediaFrame";
+import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
 
 const PostDetail = () => {
     const { postId } = useParams();
@@ -306,11 +307,13 @@ const PostDetail = () => {
                     {post.media && post.media.length > 0 && (
                         <div className="mb-4 relative rounded-xl overflow-hidden group">
                             {post.media.length === 1 ? (
-                                // Single media - Instagram frame
-                                <InstagramMediaFrame
-                                    media={post.media[0]}
-                                    postId={post.postId}
-                                />
+                                // Single media - Instagram frame with sensitive content wrapper
+                                <SensitiveMediaWrapper isSensitive={post.media[0].isNsfw}>
+                                    <InstagramMediaFrame
+                                        media={post.media[0]}
+                                        postId={post.postId}
+                                    />
+                                </SensitiveMediaWrapper>
                             ) : (
                                 // Multiple media - carousel
                                 <div className="relative">
@@ -324,10 +327,12 @@ const PostDetail = () => {
                                                 key={index}
                                                 className="w-full flex-shrink-0 snap-center"
                                             >
-                                                <InstagramMediaFrame
-                                                    media={mediaItem}
-                                                    postId={post.postId}
-                                                />
+                                                <SensitiveMediaWrapper isSensitive={mediaItem.isNsfw}>
+                                                    <InstagramMediaFrame
+                                                        media={mediaItem}
+                                                        postId={post.postId}
+                                                    />
+                                                </SensitiveMediaWrapper>
                                             </div>
                                         ))}
                                     </div>

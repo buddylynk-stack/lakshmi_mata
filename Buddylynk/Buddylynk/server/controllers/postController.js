@@ -49,68 +49,53 @@ const createPost = async (req, res) => {
 
             // NSFW Detection - Check all uploaded media
             if (media.length > 0) {
-                console.log(`🔍 Running NSFW detection on ${media.length} media file(s)...`);
+                const enableNsfwCheck = process.env.ENABLE_NSFW_CHECK !== 'false';
+                console.log(`🔍 NSFW Check enabled: ${enableNsfwCheck}`);
+                console.log(`🔍 NSFW API URL: ${process.env.NSFW_API_URL || 'not set'}`);
                 
-                socketService.sendUploadProgress(userId, {
-                    stage: "checking",
-                    progress: 80,
-                    message: "Checking content safety..."
-                });
+                if (enableNsfwCheck) {
+                    console.log(`🔍 Running NSFW detection on ${media.length} media file(s)...`);
+                    
+                    socketService.sendUploadProgress(userId, {
+                        stage: "checking",
+                        progress: 80,
+                        message: "Checking content safety..."
+                    });
 
-                try {
-                    const nsfwResults = await checkAllMedia(media);
-                    
-                    // Check if any media is NSFW
-                    const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
-                    
-                    if (nsfwMedia.length > 0) {
-                        console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s)`);
+                    try {
+                        const nsfwResults = await checkAllMedia(media);
+                        console.log(`🔍 NSFW Results:`, JSON.stringify(nsfwResults.map(r => ({ url: r.url?.substring(0, 50), isNsfw: r.isNsfw, confidence: r.confidence }))));
                         
-                        // Delete uploaded files from S3
-                        const { s3Client, BUCKET_NAME } = require("../config/s3");
-                        const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
+                        // Check if any media is NSFW - mark as sensitive instead of rejecting
+                        const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
                         
-                        for (const mediaItem of media) {
-                            try {
-                                const key = mediaItem.url.split('.com/')[1];
-                                if (key) {
-                                    await s3Client.send(new DeleteObjectCommand({
-                                        Bucket: BUCKET_NAME,
-                                        Key: key
-                                    }));
-                                    console.log(`   🗑️  Deleted: ${key}`);
+                        if (nsfwMedia.length > 0) {
+                            console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s) - marking as sensitive`);
+                            // Mark each media item with isNsfw flag
+                            nsfwResults.forEach((result, index) => {
+                                if (result.isNsfw && media[index]) {
+                                    media[index].isNsfw = true;
+                                    media[index].nsfwConfidence = result.confidence;
                                 }
-                            } catch (err) {
-                                console.error(`   ❌ Failed to delete: ${err.message}`);
-                            }
+                            });
                         }
-                        
-                        socketService.sendUploadProgress(userId, {
-                            stage: "error",
-                            progress: 0,
-                            message: "Content violates community guidelines. NSFW content detected."
-                        });
-                        
-                        return res.status(400).json({ 
-                            message: "Content violates community guidelines",
-                            error: "NSFW content detected",
-                            details: nsfwMedia.map(m => ({
-                                url: m.url,
-                                confidence: m.confidence,
-                                type: m.type
-                            }))
-                        });
-                    }
                     
-                    console.log(`✅ All media passed NSFW check`);
-                } catch (nsfwError) {
-                    console.error(`⚠️  NSFW check failed:`, nsfwError.message);
-                    // Continue anyway if NSFW check fails (fail open)
+                    console.log(`✅ NSFW check complete - ${nsfwMedia.length} sensitive item(s) marked`);
+                    } catch (nsfwError) {
+                        console.error(`⚠️  NSFW check failed:`, nsfwError.message);
+                        console.error(`⚠️  NSFW API might be unreachable. Continuing with upload (fail-open).`);
+                        // Continue anyway if NSFW check fails (fail open)
+                    }
+                } else {
+                    console.log(`⏭️  NSFW check skipped (disabled)`);
                 }
             }
         }
 
         const user = await User.getUserById(req.user.userId);
+
+        // Check if any media is marked as NSFW
+        const hasNsfwContent = media && media.some(m => m.isNsfw);
 
         const postData = {
             userId: req.user.userId,
@@ -118,6 +103,7 @@ const createPost = async (req, res) => {
             userAvatar: user.avatar,
             content,
             media,
+            isNsfw: hasNsfwContent, // Post-level flag for sensitive content
         };
 
         // Add poll options if provided (format: comma-separated string or array)
@@ -137,7 +123,7 @@ const createPost = async (req, res) => {
         });
 
         const newPost = await Post.createPost(postData);
-        console.log(`✅ Post created successfully with ${media.length} media item(s)\n`);
+        console.log(`✅ Post created successfully with ${media.length} media item(s)${hasNsfwContent ? ' (contains sensitive content)' : ''}\n`);
 
         // Emit completion
         socketService.sendUploadProgress(userId, {
@@ -168,50 +154,28 @@ const createPostWithUrls = async (req, res) => {
         console.log(`\n📝 Creating new post with direct S3 URLs...`);
         console.log(`📎 ${media?.length || 0} media URL(s) provided`);
 
-        // NSFW Detection - Check all media URLs
+        // NSFW Detection - Check all media URLs and mark sensitive content
         if (media && media.length > 0) {
             console.log(`🔍 Running NSFW detection on ${media.length} media URL(s)...`);
             
             try {
                 const nsfwResults = await checkAllMedia(media);
                 
-                // Check if any media is NSFW
+                // Check if any media is NSFW - mark as sensitive instead of rejecting
                 const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
                 
                 if (nsfwMedia.length > 0) {
-                    console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s)`);
-                    
-                    // Delete uploaded files from S3
-                    const { s3Client, BUCKET_NAME } = require("../config/s3");
-                    const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
-                    
-                    for (const mediaItem of media) {
-                        try {
-                            const key = mediaItem.url.split('.com/')[1];
-                            if (key) {
-                                await s3Client.send(new DeleteObjectCommand({
-                                    Bucket: BUCKET_NAME,
-                                    Key: key
-                                }));
-                                console.log(`   🗑️  Deleted: ${key}`);
-                            }
-                        } catch (err) {
-                            console.error(`   ❌ Failed to delete: ${err.message}`);
+                    console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s) - marking as sensitive`);
+                    // Mark each media item with isNsfw flag
+                    nsfwResults.forEach((result, index) => {
+                        if (result.isNsfw && media[index]) {
+                            media[index].isNsfw = true;
+                            media[index].nsfwConfidence = result.confidence;
                         }
-                    }
-                    
-                    return res.status(400).json({ 
-                        message: "Content violates community guidelines",
-                        error: "NSFW content detected",
-                        details: nsfwMedia.map(m => ({
-                            url: m.url,
-                            confidence: m.confidence,
-                            type: m.type
-                        }))
                     });
                 }
                 
-                console.log(`✅ All media passed NSFW check`);
+                console.log(`✅ NSFW check complete - ${nsfwMedia.length} sensitive item(s) marked`);
             } catch (nsfwError) {
                 console.error(`⚠️  NSFW check failed:`, nsfwError.message);
                 // Continue anyway if NSFW check fails (fail open)
@@ -220,12 +184,16 @@ const createPostWithUrls = async (req, res) => {
 
         const user = await User.getUserById(userId);
 
+        // Check if any media is marked as NSFW
+        const hasNsfwContent = media && media.some(m => m.isNsfw);
+
         const postData = {
             userId: userId,
             username: user.username,
             userAvatar: user.avatar,
             content,
             media: media || [],
+            isNsfw: hasNsfwContent, // Post-level flag for sensitive content
         };
 
         // Add poll options if provided
@@ -234,7 +202,7 @@ const createPostWithUrls = async (req, res) => {
         }
 
         const newPost = await Post.createPost(postData);
-        console.log(`✅ Post created successfully with ${media?.length || 0} media item(s)\n`);
+        console.log(`✅ Post created successfully with ${media?.length || 0} media item(s)${hasNsfwContent ? ' (contains sensitive content)' : ''}\n`);
 
         // Broadcast new post to ALL users via Redis PUB/SUB
         await socketService.publishEvent(socketService.CHANNELS.POST_CREATED, newPost);
@@ -587,43 +555,72 @@ const getFeed = async (req, res) => {
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
 
-        console.log(`📰 Fetching feed for user ${userId?.substring(0, 8) || 'anonymous'}...`);
+        console.log(`\n📰 ========== FEED REQUEST ==========`);
+        console.log(`👤 User: ${userId?.substring(0, 8) || 'anonymous'}`);
+        console.log(`📄 Page: ${pageNum}, Limit: ${limitNum}, Refresh: ${refresh}`);
 
         // Get all posts
         const allPosts = await Post.getAllPosts();
+        console.log(`📊 Total posts in database: ${allPosts?.length || 0}`);
         
         if (!allPosts || allPosts.length === 0) {
+            console.log(`⚠️  No posts found`);
             return res.json({ posts: [], hasMore: false, page: pageNum });
         }
 
         let orderedPosts;
+        let algorithmUsed = 'none';
 
         if (userId) {
-            // Get ML recommendations for authenticated users
-            const userInteractions = getUserInteractions(userId);
-            const recommendations = await getRecommendations(userId, null, allPosts, userInteractions);
+            console.log(`🤖 Applying ML recommendations + Zigzag for authenticated user...`);
             
-            // Create a map of postId to score for sorting
-            const scoreMap = new Map();
-            recommendations.recommendations.forEach((postId, index) => {
-                scoreMap.set(postId, recommendations.recommendations.length - index);
-            });
+            try {
+                // Get ML recommendations for authenticated users
+                const userInteractions = getUserInteractions(userId);
+                console.log(`   📈 User interactions loaded: ${Object.keys(userInteractions).length} authors`);
+                
+                const recommendations = await getRecommendations(userId, null, allPosts, userInteractions);
+                console.log(`   🎯 Recommendation source: ${recommendations.source}`);
+                console.log(`   📋 Recommendations count: ${recommendations.recommendations?.length || 0}`);
+                
+                // Create a map of postId to score for sorting
+                const scoreMap = new Map();
+                if (recommendations.recommendations && recommendations.recommendations.length > 0) {
+                    recommendations.recommendations.forEach((postId, index) => {
+                        scoreMap.set(postId, recommendations.recommendations.length - index);
+                    });
+                }
 
-            // Sort posts by recommendation score
-            const scoredPosts = allPosts.map(post => ({
-                ...post,
-                _score: scoreMap.get(post.postId) || 0
-            }));
-            scoredPosts.sort((a, b) => b._score - a._score);
-            
-            // Apply zigzag algorithm to prevent consecutive posts from same user
-            orderedPosts = applyZigzagAlgorithm(scoredPosts, refresh === 'true');
+                // Sort posts by recommendation score
+                const scoredPosts = allPosts.map(post => ({
+                    ...post,
+                    _score: scoreMap.get(post.postId) || 0
+                }));
+                scoredPosts.sort((a, b) => b._score - a._score);
+                
+                // Apply zigzag algorithm to prevent consecutive posts from same user
+                orderedPosts = applyZigzagAlgorithm(scoredPosts, refresh === 'true');
+                algorithmUsed = `ml-${recommendations.source}+zigzag`;
+                
+            } catch (mlError) {
+                console.error(`   ❌ ML recommendation failed:`, mlError.message);
+                console.log(`   🔄 Falling back to recency + zigzag...`);
+                
+                // Fallback to recency-based sorting with zigzag
+                const sortedByRecency = [...allPosts].sort((a, b) => 
+                    new Date(b.createdAt) - new Date(a.createdAt)
+                );
+                orderedPosts = applyZigzagAlgorithm(sortedByRecency, refresh === 'true');
+                algorithmUsed = 'recency+zigzag-fallback';
+            }
         } else {
+            console.log(`👻 Anonymous user - using recency + zigzag...`);
             // For anonymous users, sort by recency with zigzag
             const sortedByRecency = [...allPosts].sort((a, b) => 
                 new Date(b.createdAt) - new Date(a.createdAt)
             );
             orderedPosts = applyZigzagAlgorithm(sortedByRecency, refresh === 'true');
+            algorithmUsed = 'recency+zigzag';
         }
 
         // Paginate
@@ -632,13 +629,29 @@ const getFeed = async (req, res) => {
         const paginatedPosts = orderedPosts.slice(startIndex, endIndex);
         const hasMore = endIndex < orderedPosts.length;
 
-        console.log(`✅ Returning ${paginatedPosts.length} posts (page ${pageNum})`);
+        // Log zigzag effectiveness
+        const uniqueAuthors = new Set(paginatedPosts.map(p => p.userId)).size;
+        let consecutiveSameAuthor = 0;
+        for (let i = 1; i < paginatedPosts.length; i++) {
+            if (paginatedPosts[i].userId === paginatedPosts[i-1].userId) {
+                consecutiveSameAuthor++;
+            }
+        }
+
+        console.log(`\n✅ ========== FEED RESULT ==========`);
+        console.log(`📦 Returning ${paginatedPosts.length} posts (page ${pageNum})`);
+        console.log(`🔀 Algorithm: ${algorithmUsed}`);
+        console.log(`👥 Unique authors: ${uniqueAuthors}`);
+        console.log(`🔄 Consecutive same-author: ${consecutiveSameAuthor}`);
+        console.log(`📄 Has more: ${hasMore}`);
+        console.log(`===================================\n`);
 
         res.json({
             posts: paginatedPosts,
             hasMore,
             page: pageNum,
-            total: orderedPosts.length
+            total: orderedPosts.length,
+            algorithm: algorithmUsed
         });
     } catch (error) {
         console.error('❌ Feed error:', error);
@@ -765,4 +778,107 @@ const trackUserInteraction = async (req, res) => {
     }
 };
 
-module.exports = { createPost, createPostWithUrls, getPosts, getPostById, getFeed, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics, trackUserInteraction };
+/**
+ * Rescan all posts for NSFW content and update flags
+ * Admin endpoint to fix existing posts that weren't scanned
+ */
+const rescanPostsForNSFW = async (req, res) => {
+    try {
+        console.log('\n🔄 ========== NSFW RESCAN STARTED ==========');
+        
+        const allPosts = await Post.getAllPosts();
+        console.log(`📊 Total posts to scan: ${allPosts.length}`);
+        
+        let updated = 0;
+        let skipped = 0;
+        let errors = 0;
+        
+        for (const post of allPosts) {
+            // Skip posts without media
+            if (!post.media || post.media.length === 0) {
+                skipped++;
+                continue;
+            }
+            
+            try {
+                console.log(`\n🔍 Scanning post: ${post.postId}`);
+                
+                // Run NSFW check on all media
+                const nsfwResults = await checkAllMedia(post.media);
+                
+                // Check if any media is NSFW
+                const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
+                const hasNsfwContent = nsfwMedia.length > 0;
+                
+                // Update media items with isNsfw flag
+                const updatedMedia = post.media.map((mediaItem, index) => {
+                    const result = nsfwResults[index];
+                    if (result && result.isNsfw) {
+                        return {
+                            ...mediaItem,
+                            isNsfw: true,
+                            nsfwConfidence: result.confidence
+                        };
+                    }
+                    return mediaItem;
+                });
+                
+                // Update post in database if NSFW content found
+                if (hasNsfwContent || post.isNsfw !== hasNsfwContent) {
+                    const { docClient } = require("../config/db");
+                    const { UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+                    
+                    await docClient.send(new UpdateCommand({
+                        TableName: "Buddylynk_Posts",
+                        Key: { postId: post.postId },
+                        UpdateExpression: "SET #media = :media, #isNsfw = :isNsfw",
+                        ExpressionAttributeNames: {
+                            "#media": "media",
+                            "#isNsfw": "isNsfw"
+                        },
+                        ExpressionAttributeValues: {
+                            ":media": updatedMedia,
+                            ":isNsfw": hasNsfwContent
+                        }
+                    }));
+                    
+                    console.log(`   ✅ Updated post ${post.postId} - NSFW: ${hasNsfwContent}`);
+                    updated++;
+                } else {
+                    console.log(`   ⏭️  No changes needed for post ${post.postId}`);
+                    skipped++;
+                }
+                
+            } catch (postError) {
+                console.error(`   ❌ Error scanning post ${post.postId}:`, postError.message);
+                errors++;
+            }
+            
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        console.log('\n📊 ========== NSFW RESCAN COMPLETE ==========');
+        console.log(`✅ Updated: ${updated}`);
+        console.log(`⏭️  Skipped: ${skipped}`);
+        console.log(`❌ Errors: ${errors}`);
+        console.log('=============================================\n');
+        
+        res.json({
+            success: true,
+            message: 'NSFW rescan complete',
+            stats: {
+                total: allPosts.length,
+                updated,
+                skipped,
+                errors
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ NSFW rescan failed:', error);
+        res.status(500).json({ message: "Rescan failed", error: error.message });
+    }
+};
+
+module.exports = { createPost, createPostWithUrls, getPosts, getPostById, getFeed, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics, trackUserInteraction, rescanPostsForNSFW };

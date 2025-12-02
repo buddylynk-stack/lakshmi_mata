@@ -15,6 +15,7 @@ import HamsterLoader from "../components/HamsterLoader";
 import ConfirmModal from "../components/ConfirmModal";
 import InstagramMediaFrame from "../components/InstagramMediaFrame";
 import InstagramImageViewer from "../components/InstagramImageViewer";
+import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
 import { uploadViaServer } from "../utils/serverUpload";
 import LoginPrompt from "../components/LoginPrompt";
 import { containerVariants, itemVariants, scaleVariants, fadeVariants, fastTransition } from "../utils/animations";
@@ -833,7 +834,7 @@ const Home = () => {
     }, [fullscreenMedia, fullscreenIndex]);
 
     return (
-        <div className="min-h-screen md:pl-72 pt-4 pb-20 md:pb-4 md:pr-4 dark:bg-dark bg-gray-100">
+        <div className="min-h-screen md:pl-72 pt-4 pb-20 md:pb-4 md:pr-4 dark:bg-dark bg-gray-100 scroll-optimized" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
             <div className="max-w-2xl mx-auto space-y-6">
 
                 {/* Header with Notification Icon */}
@@ -1215,13 +1216,11 @@ const Home = () => {
                         </div>
                     ) : (
                         posts.map((post, index) => (
-                            <motion.div
+                            <div
                                 key={post.postId}
                                 data-post-id={post.postId}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="glass-panel p-4"
+                                className="glass-panel p-4 scroll-item"
+                                style={{ contain: 'layout style paint' }}
                             >
                                 <div className="flex items-center gap-3 mb-4">
                                     <SafeAvatar
@@ -1363,14 +1362,16 @@ const Home = () => {
                                 {post.media && post.media.length > 0 && (
                                     <div className="mb-4 relative rounded-xl overflow-hidden group">
                                         {post.media.length === 1 ? (
-                                            // Single media - Instagram frame
-                                            <InstagramMediaFrame
-                                                media={post.media[0]}
-                                                postId={post.postId}
-                                                onDelete={handleDeletePost}
-                                                onDoubleClick={() => openFullscreen(post.media, 0)}
-                                                onClick={() => openViewer(post.media, 0, post)}
-                                            />
+                                            // Single media - Instagram frame with sensitive content wrapper
+                                            <SensitiveMediaWrapper isSensitive={post.media[0].isNsfw}>
+                                                <InstagramMediaFrame
+                                                    media={post.media[0]}
+                                                    postId={post.postId}
+                                                    onDelete={handleDeletePost}
+                                                    onDoubleClick={() => openFullscreen(post.media, 0)}
+                                                    onClick={() => openViewer(post.media, 0, post)}
+                                                />
+                                            </SensitiveMediaWrapper>
                                         ) : (
                                             // Multiple media - carousel with counter and arrows
                                             <div className="relative">
@@ -1385,13 +1386,15 @@ const Home = () => {
                                                             className="w-full flex-shrink-0 snap-center cursor-pointer"
                                                             onDoubleClick={() => openFullscreen(post.media, index)}
                                                         >
-                                                            <InstagramMediaFrame
-                                                                media={mediaItem}
-                                                                postId={post.postId}
-                                                                onDelete={handleDeletePost}
-                                                                onDoubleClick={() => openFullscreen(post.media, index)}
-                                                                onClick={() => openViewer(post.media, index, post)}
-                                                            />
+                                                            <SensitiveMediaWrapper isSensitive={mediaItem.isNsfw}>
+                                                                <InstagramMediaFrame
+                                                                    media={mediaItem}
+                                                                    postId={post.postId}
+                                                                    onDelete={handleDeletePost}
+                                                                    onDoubleClick={() => openFullscreen(post.media, index)}
+                                                                    onClick={() => openViewer(post.media, index, post)}
+                                                                />
+                                                            </SensitiveMediaWrapper>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1446,13 +1449,15 @@ const Home = () => {
                                 {/* Backward compatibility for old posts with single media */}
                                 {post.mediaUrl && !post.media && (
                                     <div className="mb-4">
-                                        <InstagramMediaFrame
-                                            media={{ url: post.mediaUrl, type: post.mediaType }}
-                                            postId={post.postId}
-                                            onDelete={handleDeletePost}
-                                            onDoubleClick={() => openFullscreen([{ url: post.mediaUrl, type: post.mediaType }], 0)}
-                                            onClick={() => openViewer([{ url: post.mediaUrl, type: post.mediaType }], 0, post)}
-                                        />
+                                        <SensitiveMediaWrapper isSensitive={post.isNsfw}>
+                                            <InstagramMediaFrame
+                                                media={{ url: post.mediaUrl, type: post.mediaType }}
+                                                postId={post.postId}
+                                                onDelete={handleDeletePost}
+                                                onDoubleClick={() => openFullscreen([{ url: post.mediaUrl, type: post.mediaType }], 0)}
+                                                onClick={() => openViewer([{ url: post.mediaUrl, type: post.mediaType }], 0, post)}
+                                            />
+                                        </SensitiveMediaWrapper>
                                     </div>
                                 )}
 
@@ -1704,7 +1709,7 @@ const Home = () => {
                                         </div>
                                     </motion.div>
                                 )}
-                            </motion.div>
+                            </div>
                         ))
                     )}
                 </div>
