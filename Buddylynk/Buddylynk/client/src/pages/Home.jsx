@@ -181,14 +181,21 @@ const Home = () => {
         };
     }, [posts]);
 
-    const fetchPosts = async () => {
+    const fetchPosts = async (refresh = false) => {
         setLoading(true);
         try {
-            const res = await axios.get("/api/posts");
+            // Use the new feed endpoint with ML recommendations and zigzag algorithm
+            const endpoint = user ? "/api/posts/feed" : "/api/posts/feed";
+            const params = refresh ? { refresh: 'true' } : {};
+            
+            const res = await axios.get(endpoint, { params });
+
+            // The feed endpoint returns {posts, hasMore, page, total}
+            const feedPosts = res.data.posts || res.data;
 
             // Filter out posts from blocked users
             const blockedUsers = user?.blockedUsers || [];
-            const filteredPosts = res.data.filter(post => !blockedUsers.includes(post.userId));
+            const filteredPosts = feedPosts.filter(post => !blockedUsers.includes(post.userId));
 
             // Only set posts if they have valid data (prevents "Unknown date" flash)
             const validPosts = filteredPosts.filter(post =>
@@ -196,6 +203,9 @@ const Home = () => {
             );
 
             setPosts(validPosts);
+            
+            // Log feed info
+            console.log(`📰 Loaded ${validPosts.length} posts from feed (zigzag algorithm applied)`);
         } catch (error) {
             console.error("Error fetching posts:", error);
         } finally {
@@ -313,6 +323,25 @@ const Home = () => {
         }
     };
 
+    // Track user interactions for ML recommendations
+    const trackInteraction = async (postId, action, duration = 0) => {
+        if (!user) return; // Only track for logged-in users
+        
+        try {
+            const token = localStorage.getItem("token");
+            await axios.post("/api/posts/track", {
+                postId,
+                action,
+                duration
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            // Silent fail - tracking shouldn't break UX
+            console.debug("Tracking error:", error);
+        }
+    };
+
     const handleLike = async (postId) => {
         // Require login to like
         if (requireLogin("like", "Please login to like posts")) return;
@@ -337,6 +366,9 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/like`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            
+            // Track like interaction for ML
+            trackInteraction(postId, 'like');
         } catch (error) {
             console.error("Error liking post:", error);
             // Revert on error
@@ -391,6 +423,10 @@ const Home = () => {
                 { content },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            
+            // Track comment interaction for ML
+            trackInteraction(postId, 'comment');
+            
             // Real-time update will replace temp comment
         } catch (error) {
             console.error("Error commenting:", error);
@@ -554,6 +590,9 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/share`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            
+            // Track share interaction for ML
+            trackInteraction(postId, 'share');
         } catch (error) {
             console.error("Error tracking share:", error);
             // Revert on error
@@ -598,6 +637,10 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/save`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            
+            // Track save interaction for ML
+            trackInteraction(postId, 'save');
+            
             // Real-time update will come via socket
         } catch (error) {
             console.error("Error saving post:", error);
@@ -609,6 +652,11 @@ const Home = () => {
             const token = localStorage.getItem("token");
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
             await axios.post(`/api/posts/${postId}/view`, {}, { headers });
+            
+            // Track view interaction for ML (only for logged-in users)
+            if (user) {
+                trackInteraction(postId, 'view', 2); // 2 seconds minimum view time
+            }
         } catch (error) {
             console.error("Error incrementing view:", error);
         }
@@ -791,7 +839,18 @@ const Home = () => {
                 {/* Header with Notification Icon */}
                 <div className="flex justify-between items-center px-4 md:px-0">
                     <h1 className="text-2xl font-bold dark:text-white text-gray-900">Feed</h1>
-                    <div className="relative">
+                    <div className="relative flex items-center gap-2">
+                        {/* Refresh Feed Button */}
+                        <button
+                            onClick={() => fetchPosts(true)}
+                            className="p-2 text-gray-400 dark:hover:text-white hover:text-gray-900 transition-colors rounded-full hover:bg-white/5"
+                            title="Refresh feed (new order)"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                        
                         <button
                             onClick={() => setShowNotifications(!showNotifications)}
                             className="relative p-2 text-gray-400 dark:hover:text-white hover:text-gray-900 transition-colors rounded-full hover:bg-white/5"

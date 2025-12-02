@@ -44,13 +44,15 @@ export const SocketProvider = ({ children }) => {
 
         const newSocket = io(SOCKET_URL, {
             withCredentials: true,
-            transports: ['websocket', 'polling'], // Prefer WebSocket
+            transports: ['polling', 'websocket'], // Start with polling, upgrade to WebSocket
             reconnection: true,
             reconnectionDelay: RECONNECT_DELAY_BASE,
             reconnectionDelayMax: 5000,
             reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
             timeout: 20000,
             autoConnect: true,
+            forceNew: false,
+            path: '/socket.io/', // Explicit path
         });
 
         // Connection event handlers
@@ -100,6 +102,8 @@ export const SocketProvider = ({ children }) => {
 
         newSocket.on('connect_error', (error) => {
             console.error('❌ Connection error:', error.message);
+            console.error('❌ Socket URL:', SOCKET_URL);
+            console.error('❌ Error details:', error);
             setIsConnected(false);
         });
 

@@ -1,11 +1,13 @@
 const express = require("express");
-const { createPost, getPosts, getPostById, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics } = require("../controllers/postController");
+const { createPost, getPosts, getPostById, getFeed, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics, trackUserInteraction } = require("../controllers/postController");
 const { protect, optionalProtect } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
 
 router.get("/", getPosts);
+router.get("/feed", optionalProtect, getFeed); // ML-powered feed with zigzag algorithm (MUST be before /:id)
+router.post("/track", protect, trackUserInteraction); // Track interactions for ML
 router.get("/:id", getPostById); // Get single post (public for sharing)
 router.post("/", protect, upload.array("media", 10), createPost); // Allow up to 10 files
 router.post("/with-urls", protect, require("../controllers/postController").createPostWithUrls); // Direct S3 upload - no file size limit

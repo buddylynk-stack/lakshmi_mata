@@ -3,6 +3,8 @@ const User = require("../models/User");
 const PostView = require("../models/PostView");
 const Notification = require("../models/Notification");
 const { uploadToS3 } = require("../middleware/uploadMiddleware");
+const { getRecommendations, trackInteraction, getUserInteractions } = require("../services/recommendationService");
+const { checkNSFW, checkVideoNSFW, checkAllMedia } = require("../services/nsfwService");
 
 const createPost = async (req, res) => {
     try {
@@ -26,7 +28,7 @@ const createPost = async (req, res) => {
                     stage: "uploading",
                     currentFile: i + 1,
                     totalFiles: totalFiles,
-                    progress: Math.round(((i) / totalFiles) * 80), // 0-80% for uploads
+                    progress: Math.round(((i) / totalFiles) * 70), // 0-70% for uploads
                     message: `Uploading file ${i + 1} of ${totalFiles}...`
                 });
 
@@ -40,9 +42,71 @@ const createPost = async (req, res) => {
                     stage: "uploading",
                     currentFile: i + 1,
                     totalFiles: totalFiles,
-                    progress: Math.round(((i + 1) / totalFiles) * 80),
+                    progress: Math.round(((i + 1) / totalFiles) * 70),
                     message: `Uploaded ${i + 1} of ${totalFiles} files`
                 });
+            }
+
+            // NSFW Detection - Check all uploaded media
+            if (media.length > 0) {
+                console.log(`🔍 Running NSFW detection on ${media.length} media file(s)...`);
+                
+                socketService.sendUploadProgress(userId, {
+                    stage: "checking",
+                    progress: 80,
+                    message: "Checking content safety..."
+                });
+
+                try {
+                    const nsfwResults = await checkAllMedia(media);
+                    
+                    // Check if any media is NSFW
+                    const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
+                    
+                    if (nsfwMedia.length > 0) {
+                        console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s)`);
+                        
+                        // Delete uploaded files from S3
+                        const { s3Client, BUCKET_NAME } = require("../config/s3");
+                        const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
+                        
+                        for (const mediaItem of media) {
+                            try {
+                                const key = mediaItem.url.split('.com/')[1];
+                                if (key) {
+                                    await s3Client.send(new DeleteObjectCommand({
+                                        Bucket: BUCKET_NAME,
+                                        Key: key
+                                    }));
+                                    console.log(`   🗑️  Deleted: ${key}`);
+                                }
+                            } catch (err) {
+                                console.error(`   ❌ Failed to delete: ${err.message}`);
+                            }
+                        }
+                        
+                        socketService.sendUploadProgress(userId, {
+                            stage: "error",
+                            progress: 0,
+                            message: "Content violates community guidelines. NSFW content detected."
+                        });
+                        
+                        return res.status(400).json({ 
+                            message: "Content violates community guidelines",
+                            error: "NSFW content detected",
+                            details: nsfwMedia.map(m => ({
+                                url: m.url,
+                                confidence: m.confidence,
+                                type: m.type
+                            }))
+                        });
+                    }
+                    
+                    console.log(`✅ All media passed NSFW check`);
+                } catch (nsfwError) {
+                    console.error(`⚠️  NSFW check failed:`, nsfwError.message);
+                    // Continue anyway if NSFW check fails (fail open)
+                }
             }
         }
 
@@ -99,14 +163,65 @@ const createPostWithUrls = async (req, res) => {
     try {
         const { content, media, pollOptions } = req.body;
         const socketService = req.app.get("socketService");
+        const userId = req.user.userId;
 
         console.log(`\n📝 Creating new post with direct S3 URLs...`);
         console.log(`📎 ${media?.length || 0} media URL(s) provided`);
 
-        const user = await User.getUserById(req.user.userId);
+        // NSFW Detection - Check all media URLs
+        if (media && media.length > 0) {
+            console.log(`🔍 Running NSFW detection on ${media.length} media URL(s)...`);
+            
+            try {
+                const nsfwResults = await checkAllMedia(media);
+                
+                // Check if any media is NSFW
+                const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
+                
+                if (nsfwMedia.length > 0) {
+                    console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s)`);
+                    
+                    // Delete uploaded files from S3
+                    const { s3Client, BUCKET_NAME } = require("../config/s3");
+                    const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
+                    
+                    for (const mediaItem of media) {
+                        try {
+                            const key = mediaItem.url.split('.com/')[1];
+                            if (key) {
+                                await s3Client.send(new DeleteObjectCommand({
+                                    Bucket: BUCKET_NAME,
+                                    Key: key
+                                }));
+                                console.log(`   🗑️  Deleted: ${key}`);
+                            }
+                        } catch (err) {
+                            console.error(`   ❌ Failed to delete: ${err.message}`);
+                        }
+                    }
+                    
+                    return res.status(400).json({ 
+                        message: "Content violates community guidelines",
+                        error: "NSFW content detected",
+                        details: nsfwMedia.map(m => ({
+                            url: m.url,
+                            confidence: m.confidence,
+                            type: m.type
+                        }))
+                    });
+                }
+                
+                console.log(`✅ All media passed NSFW check`);
+            } catch (nsfwError) {
+                console.error(`⚠️  NSFW check failed:`, nsfwError.message);
+                // Continue anyway if NSFW check fails (fail open)
+            }
+        }
+
+        const user = await User.getUserById(userId);
 
         const postData = {
-            userId: req.user.userId,
+            userId: userId,
             username: user.username,
             userAvatar: user.avatar,
             content,
@@ -461,4 +576,193 @@ const getPostAnalytics = async (req, res) => {
     }
 };
 
-module.exports = { createPost, createPostWithUrls, getPosts, getPostById, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics };
+/**
+ * Get personalized feed with ML recommendations and zigzag algorithm
+ * Prevents consecutive posts from same user
+ */
+const getFeed = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const { page = 1, limit = 20, refresh = false } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+
+        console.log(`📰 Fetching feed for user ${userId?.substring(0, 8) || 'anonymous'}...`);
+
+        // Get all posts
+        const allPosts = await Post.getAllPosts();
+        
+        if (!allPosts || allPosts.length === 0) {
+            return res.json({ posts: [], hasMore: false, page: pageNum });
+        }
+
+        let orderedPosts;
+
+        if (userId) {
+            // Get ML recommendations for authenticated users
+            const userInteractions = getUserInteractions(userId);
+            const recommendations = await getRecommendations(userId, null, allPosts, userInteractions);
+            
+            // Create a map of postId to score for sorting
+            const scoreMap = new Map();
+            recommendations.recommendations.forEach((postId, index) => {
+                scoreMap.set(postId, recommendations.recommendations.length - index);
+            });
+
+            // Sort posts by recommendation score
+            const scoredPosts = allPosts.map(post => ({
+                ...post,
+                _score: scoreMap.get(post.postId) || 0
+            }));
+            scoredPosts.sort((a, b) => b._score - a._score);
+            
+            // Apply zigzag algorithm to prevent consecutive posts from same user
+            orderedPosts = applyZigzagAlgorithm(scoredPosts, refresh === 'true');
+        } else {
+            // For anonymous users, sort by recency with zigzag
+            const sortedByRecency = [...allPosts].sort((a, b) => 
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+            orderedPosts = applyZigzagAlgorithm(sortedByRecency, refresh === 'true');
+        }
+
+        // Paginate
+        const startIndex = (pageNum - 1) * limitNum;
+        const endIndex = startIndex + limitNum;
+        const paginatedPosts = orderedPosts.slice(startIndex, endIndex);
+        const hasMore = endIndex < orderedPosts.length;
+
+        console.log(`✅ Returning ${paginatedPosts.length} posts (page ${pageNum})`);
+
+        res.json({
+            posts: paginatedPosts,
+            hasMore,
+            page: pageNum,
+            total: orderedPosts.length
+        });
+    } catch (error) {
+        console.error('❌ Feed error:', error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+/**
+ * Zigzag algorithm to distribute posts from different users
+ * Prevents consecutive posts from the same user
+ */
+const applyZigzagAlgorithm = (posts, randomize = false) => {
+    if (!posts || posts.length <= 1) return posts;
+
+    // Group posts by user
+    const userPosts = new Map();
+    posts.forEach(post => {
+        const userId = post.userId;
+        if (!userPosts.has(userId)) {
+            userPosts.set(userId, []);
+        }
+        userPosts.get(userId).push(post);
+    });
+
+    // If randomize (refresh), shuffle each user's posts
+    if (randomize) {
+        userPosts.forEach((posts, userId) => {
+            userPosts.set(userId, shuffleArray([...posts]));
+        });
+    }
+
+    // Create zigzag pattern
+    const result = [];
+    const userQueues = Array.from(userPosts.entries()).map(([userId, posts]) => ({
+        userId,
+        posts: [...posts],
+        index: 0
+    }));
+
+    // Sort queues by number of posts (users with more posts get distributed better)
+    userQueues.sort((a, b) => b.posts.length - a.posts.length);
+
+    // If randomize, also shuffle the queue order slightly
+    if (randomize) {
+        // Partial shuffle - keep top users but randomize within groups
+        const topUsers = userQueues.slice(0, Math.min(3, userQueues.length));
+        const restUsers = shuffleArray(userQueues.slice(3));
+        userQueues.length = 0;
+        userQueues.push(...topUsers, ...restUsers);
+    }
+
+    let lastUserId = null;
+    let attempts = 0;
+    const maxAttempts = posts.length * 2;
+
+    while (result.length < posts.length && attempts < maxAttempts) {
+        attempts++;
+        
+        // Find next user that's different from last
+        let selectedQueue = null;
+        
+        for (const queue of userQueues) {
+            if (queue.index < queue.posts.length && queue.userId !== lastUserId) {
+                selectedQueue = queue;
+                break;
+            }
+        }
+
+        // If no different user found, use any available
+        if (!selectedQueue) {
+            for (const queue of userQueues) {
+                if (queue.index < queue.posts.length) {
+                    selectedQueue = queue;
+                    break;
+                }
+            }
+        }
+
+        if (selectedQueue) {
+            result.push(selectedQueue.posts[selectedQueue.index]);
+            lastUserId = selectedQueue.userId;
+            selectedQueue.index++;
+            
+            // Re-sort to prioritize users with more remaining posts
+            userQueues.sort((a, b) => 
+                (b.posts.length - b.index) - (a.posts.length - a.index)
+            );
+        }
+    }
+
+    return result;
+};
+
+/**
+ * Fisher-Yates shuffle
+ */
+const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+};
+
+/**
+ * Track user interaction for ML recommendations
+ */
+const trackUserInteraction = async (req, res) => {
+    try {
+        const { postId, action, duration } = req.body;
+        const userId = req.user.userId;
+
+        // Get post to find author
+        const post = await Post.getPostById(postId);
+        const postAuthorId = post?.userId || null;
+
+        await trackInteraction(userId, postId, action, postAuthorId, duration);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Track interaction error:', error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+module.exports = { createPost, createPostWithUrls, getPosts, getPostById, getFeed, votePoll, deletePost, likePost, commentPost, editComment, deleteComment, pinComment, sharePost, savePost, viewPost, editPost, getPostAnalytics, trackUserInteraction };

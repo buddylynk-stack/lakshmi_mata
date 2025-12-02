@@ -70,15 +70,90 @@ jobs:
                 fi
             done
             
-            # Update Nginx configuration to point to detected path
-            echo "📝 Updating Nginx configuration..."
+            # Update Nginx configuration with WebSocket support
+            echo "📝 Updating Nginx configuration with WebSocket support..."
             NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
-            if [ -f "/etc/nginx/sites-available/buddylynk" ]; then
-                sudo cp /etc/nginx/sites-available/buddylynk /etc/nginx/sites-available/buddylynk.backup
-                # Replace any old path with the new detected path
-                sudo sed -i "s|root /home/ubuntu/lakshmi_mata/[^;]*;|root $NGINX_PATH;|g" /etc/nginx/sites-available/buddylynk
-                echo "✅ Nginx config updated to: $NGINX_PATH"
-            fi
+            
+            # Create proper Nginx config with WebSocket support for Socket.IO
+            sudo tee /etc/nginx/sites-available/buddylynk > /dev/null << 'NGINXEOF'
+            server {
+                listen 80;
+                listen [::]:80;
+                server_name buddylynk.com www.buddylynk.com;
+                return 301 https://$server_name$request_uri;
+            }
+
+            server {
+                listen 443 ssl http2;
+                listen [::]:443 ssl http2;
+                server_name buddylynk.com www.buddylynk.com;
+
+                # SSL certificates (adjust paths as needed)
+                ssl_certificate /etc/letsencrypt/live/buddylynk.com/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/buddylynk.com/privkey.pem;
+
+                # SSL settings
+                ssl_protocols TLSv1.2 TLSv1.3;
+                ssl_prefer_server_ciphers on;
+                ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+
+                # API routes
+                location /api/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_connect_timeout 60s;
+                    proxy_send_timeout 60s;
+                    proxy_read_timeout 60s;
+                    client_max_body_size 500M;
+                }
+
+                # Socket.IO - WebSocket support (CRITICAL FOR REAL-TIME)
+                location /socket.io/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_read_timeout 86400;
+                    proxy_send_timeout 86400;
+                }
+
+                # Uploads folder
+                location /uploads/ {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                }
+
+                # Frontend - React app
+                root NGINX_PATH_PLACEHOLDER;
+                index index.html;
+
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+
+                # Gzip compression
+                gzip on;
+                gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+            }
+            NGINXEOF
+
+            # Replace placeholder with actual path
+            sudo sed -i "s|NGINX_PATH_PLACEHOLDER|$NGINX_PATH|g" /etc/nginx/sites-available/buddylynk
+            
+            # Enable the site
+            sudo ln -sf /etc/nginx/sites-available/buddylynk /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            
+            echo "✅ Nginx config updated with WebSocket support"
             
             # Test Nginx configuration
             echo "🧪 Testing Nginx configuration..."
