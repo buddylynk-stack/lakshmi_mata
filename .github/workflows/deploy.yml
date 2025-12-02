@@ -81,20 +81,20 @@ jobs:
             cd ~/lakshmi_mata/$PROJECT_PATH/server
             
             cat > .env << ENVEOF
-            AWS_REGION=${AWS_REGION:-us-east-1}
-            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-            S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
-            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-            PORT=5000
-            JWT_SECRET=${JWT_SECRET}
-            REDIS_HOST=localhost
-            REDIS_PORT=6379
-            NSFW_API_URL=http://35.227.39.141:8002/nsfw
-            ENABLE_NSFW_CHECK=true
-            RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
-            ENVEOF
+AWS_REGION=${AWS_REGION:-us-east-1}
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+PORT=5000
+JWT_SECRET=${JWT_SECRET}
+REDIS_HOST=localhost
+REDIS_PORT=6379
+NSFW_API_URL=http://35.227.39.141:8002/nsfw
+ENABLE_NSFW_CHECK=true
+RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
+ENVEOF
             
             echo "Starting backend..."
             pm2 start index.js --name buddylynk-server
