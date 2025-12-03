@@ -16,7 +16,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import InstagramMediaFrame from "../components/InstagramMediaFrame";
 import InstagramImageViewer from "../components/InstagramImageViewer";
 import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
-import { uploadViaServer } from "../utils/serverUpload";
+import { uploadViaServer, uploadMultipleFiles } from "../utils/serverUpload";
 import LoginPrompt from "../components/LoginPrompt";
 import { containerVariants, itemVariants, scaleVariants, fadeVariants, fastTransition } from "../utils/animations";
 // Shadcn-style UI Components
@@ -60,7 +60,9 @@ const Home = () => {
     const [editCommentText, setEditCommentText] = useState("");
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const [loginPromptMessage, setLoginPromptMessage] = useState("");
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const carouselRefs = useRef({});
+    const feedContainerRef = useRef(null);
     const { user } = useAuth();
     const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
     const { socket, isConnected } = useSocket();
@@ -81,6 +83,15 @@ const Home = () => {
     useEffect(() => {
         fetchPosts();
     }, []);
+
+    // Pull-to-refresh handler for mobile
+    const handlePullToRefresh = async () => {
+        if (isRefreshing || loading) return;
+        setIsRefreshing(true);
+        await fetchPosts(true); // Refresh with zigzag shuffle
+        setIsRefreshing(false);
+        toast.success("Feed refreshed with new order!");
+    };
 
     // Fetch avatars when posts change
     useEffect(() => {
@@ -187,34 +198,73 @@ const Home = () => {
     }, [posts]);
 
     const fetchPosts = async (refresh = false) => {
+        // If refresh requested, clear cache and fetch with zigzag shuffle
+        if (refresh) {
+            sessionStorage.removeItem('buddylynk_feed_cache');
+            setLoading(true);
+            await fetchFreshPosts(true, true); // Pass refresh=true to API
+            return;
+        }
+        
+        // Try to load from cache first for instant display
+        const cacheKey = 'buddylynk_feed_cache';
+        const cachedData = sessionStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+            try {
+                const { posts: cachedPosts, timestamp } = JSON.parse(cachedData);
+                const cacheAge = Date.now() - timestamp;
+                // Use cache if less than 2 minutes old
+                if (cacheAge < 120000 && cachedPosts.length > 0) {
+                    setPosts(cachedPosts);
+                    setLoading(false);
+                    // Fetch fresh data in background (no shuffle)
+                    fetchFreshPosts(false, false);
+                    return;
+                }
+            } catch (e) {
+                sessionStorage.removeItem(cacheKey);
+            }
+        }
+        
         setLoading(true);
+        await fetchFreshPosts(true, false);
+    };
+    
+    const fetchFreshPosts = async (showLoading = true, refresh = false) => {
         try {
-            // Use the new feed endpoint with ML recommendations and zigzag algorithm
-            const endpoint = user ? "/api/posts/feed" : "/api/posts/feed";
-            const params = refresh ? { refresh: 'true' } : {};
-            
-            const res = await axios.get(endpoint, { params });
+            const endpoint = "/api/posts/feed";
+            const res = await axios.get(endpoint, { 
+                params: { 
+                    limit: 20,
+                    refresh: refresh ? 'true' : undefined // Triggers zigzag shuffle on server
+                },
+                timeout: 10000
+            });
 
-            // The feed endpoint returns {posts, hasMore, page, total}
             const feedPosts = res.data.posts || res.data;
-
-            // Filter out posts from blocked users
+            const algorithm = res.data.algorithm || 'unknown';
+            
+            // Log the algorithm used
+            console.log(`📰 Feed loaded with algorithm: ${algorithm}`);
+            
             const blockedUsers = user?.blockedUsers || [];
             const filteredPosts = feedPosts.filter(post => !blockedUsers.includes(post.userId));
-
-            // Only set posts if they have valid data (prevents "Unknown date" flash)
             const validPosts = filteredPosts.filter(post =>
                 post.createdAt && post.username && post.userId
             );
 
             setPosts(validPosts);
             
-            // Log feed info
-            console.log(`📰 Loaded ${validPosts.length} posts from feed (zigzag algorithm applied)`);
+            // Cache the posts
+            sessionStorage.setItem('buddylynk_feed_cache', JSON.stringify({
+                posts: validPosts,
+                timestamp: Date.now()
+            }));
         } catch (error) {
             console.error("Error fetching posts:", error);
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     };
 
@@ -236,22 +286,22 @@ const Home = () => {
             setUploadSuccess(false);
             setUploadStage("uploading");
 
-            // Upload media files directly to S3 (bypasses EC2 for unlimited file size)
-            const uploadedMedia = [];
+            // Upload media files with compression and parallel upload (much faster!)
+            let uploadedMedia = [];
             if (media.length > 0) {
-                const totalFiles = media.length;
-                for (let i = 0; i < media.length; i++) {
-                    const file = media[i];
-                    setUploadProgress(Math.round(((i) / totalFiles) * 80));
-                    
+                if (media.length === 1) {
+                    // Single file - use regular upload
+                    const file = media[0];
                     const mediaUrl = await uploadViaServer(file, (progress) => {
-                        // Calculate overall progress
-                        const fileProgress = (i / totalFiles) * 80 + (progress / totalFiles) * 0.8;
-                        setUploadProgress(Math.round(fileProgress));
+                        setUploadProgress(Math.round(progress * 0.8));
                     });
-                    
                     const mediaType = file.type.startsWith("image") ? "image" : "video";
-                    uploadedMedia.push({ url: mediaUrl, type: mediaType });
+                    uploadedMedia = [{ url: mediaUrl, type: mediaType }];
+                } else {
+                    // Multiple files - use parallel upload (3x faster!)
+                    uploadedMedia = await uploadMultipleFiles(media, (progress) => {
+                        setUploadProgress(Math.round(progress * 0.8));
+                    });
                 }
             }
 
@@ -787,11 +837,9 @@ const Home = () => {
     };
 
     const openFullscreen = (media, index = 0) => {
-        // Only on desktop (screen width >= 768px)
-        if (window.innerWidth >= 768) {
-            setFullscreenMedia(media);
-            setFullscreenIndex(index);
-        }
+        // Works on all devices now with enhanced viewer
+        setFullscreenMedia(media);
+        setFullscreenIndex(index);
     };
 
     const closeFullscreen = () => {
@@ -854,10 +902,11 @@ const Home = () => {
                         {/* Refresh Feed Button */}
                         <button
                             onClick={() => fetchPosts(true)}
-                            className="p-2 text-gray-400 dark:hover:text-white hover:text-gray-900 transition-colors rounded-full hover:bg-white/5"
+                            disabled={loading}
+                            className="p-2 text-gray-400 dark:hover:text-white hover:text-gray-900 transition-colors rounded-full hover:bg-white/5 disabled:opacity-50"
                             title="Refresh feed (new order)"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
@@ -924,7 +973,7 @@ const Home = () => {
                                         </div>
 
                                         {/* Notifications List */}
-                                        <div className="overflow-y-auto max-h-[60vh] md:max-h-[400px]">
+                                        <div className="overflow-y-auto scrollbar-smooth max-h-[60vh] md:max-h-[400px]">
                                             {notifications.length === 0 ? (
                                                 <div className="p-8 text-center dark:text-gray-500 text-gray-600">
                                                     <Bell className="w-16 h-16 mx-auto mb-3 opacity-30" />
@@ -1422,31 +1471,6 @@ const Home = () => {
                                                     {(currentSlide[post.postId] || 0) + 1}/{post.media.length}
                                                 </div>
 
-                                                {/* Navigation Arrows - Always Visible */}
-                                                {post.media.length > 1 && (currentSlide[post.postId] || 0) > 0 && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            scrollToSlide(post.postId, 'prev');
-                                                        }}
-                                                        className="hidden md:flex items-center justify-center absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 p-2 rounded-full shadow-lg z-10 transition-all"
-                                                    >
-                                                        <ChevronLeft className="w-5 h-5" />
-                                                    </button>
-                                                )}
-
-                                                {post.media.length > 1 && (currentSlide[post.postId] || 0) < post.media.length - 1 && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            scrollToSlide(post.postId, 'next');
-                                                        }}
-                                                        className="hidden md:flex items-center justify-center absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 p-2 rounded-full shadow-lg z-10 transition-all"
-                                                    >
-                                                        <ChevronRight className="w-5 h-5" />
-                                                    </button>
-                                                )}
-
                                                 {/* Dots Indicator */}
                                                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                                                     {post.media.map((_, index) => (
@@ -1586,7 +1610,7 @@ const Home = () => {
                                         </div>
 
                                         {/* Comments List - Newest First */}
-                                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                                        <div className="space-y-3 max-h-60 overflow-y-auto scrollbar-smooth">
                                             {post.comments?.length > 0 ? (
                                                 post.comments.map((comment, index) => (
                                                     <motion.div
@@ -1733,87 +1757,16 @@ const Home = () => {
                 </div>
             </div>
 
-            {/* Fullscreen Lightbox - Desktop Only */}
-            <AnimatePresence>
-                {fullscreenMedia && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm hidden md:flex items-center justify-center"
-                        onClick={closeFullscreen}
-                    >
-                        {/* Close Button */}
-                        <button
-                            onClick={closeFullscreen}
-                            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full hover:bg-white/10 transition-colors z-10"
-                        >
-                            <X className="w-8 h-8" />
-                        </button>
+            {/* Enhanced Fullscreen Media Viewer - Works on ALL devices */}
+            <InstagramImageViewer
+                isOpen={fullscreenMedia !== null}
+                onClose={closeFullscreen}
+                images={fullscreenMedia || []}
+                initialIndex={fullscreenIndex}
+                postData={null}
+            />
 
-                        {/* Counter */}
-                        {fullscreenMedia.length > 1 && (
-                            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium z-10">
-                                {fullscreenIndex + 1} / {fullscreenMedia.length}
-                            </div>
-                        )}
-
-                        {/* Media Content */}
-                        <div
-                            className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center p-8"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {fullscreenMedia[fullscreenIndex].type === "video" ? (
-                                <video
-                                    src={fullscreenMedia[fullscreenIndex].url}
-                                    controls
-                                    className="max-w-full max-h-full object-contain"
-                                />
-                            ) : (
-                                <RetryImage
-                                    src={fullscreenMedia[fullscreenIndex].url}
-                                    alt="Fullscreen view"
-                                    className="max-w-full max-h-full object-contain"
-                                />
-                            )}
-                        </div>
-
-                        {/* Navigation Arrows */}
-                        {fullscreenMedia.length > 1 && (
-                            <>
-                                {fullscreenIndex > 0 && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigateFullscreen('prev');
-                                        }}
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 p-3 rounded-full shadow-lg transition-colors z-10"
-                                    >
-                                        <ChevronLeft className="w-6 h-6" />
-                                    </button>
-                                )}
-                                {fullscreenIndex < fullscreenMedia.length - 1 && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigateFullscreen('next');
-                                        }}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 p-3 rounded-full shadow-lg transition-colors z-10"
-                                    >
-                                        <ChevronRight className="w-6 h-6" />
-                                    </button>
-                                )}
-                            </>
-                        )}
-
-                        {/* Keyboard Hint */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm">
-                            Press ESC to close {fullscreenMedia.length > 1 && '• Use arrow keys to navigate'}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
+            {/* Instagram-style Image Viewer */}
             <InstagramImageViewer
                 isOpen={isViewerOpen}
                 onClose={closeViewer}

@@ -40,13 +40,166 @@
     will-change: scroll-position;
   }
 
-  /* Prevent scroll jank on mobile */
+  /* Prevent scroll jank on mobile - CRITICAL FIX */
   .scroll-optimized {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     touch-action: pan-y;
-    transform: translate3d(0, 0, 0);
-    scroll-behavior: smooth;
+  }
+  
+  /* Mobile-specific: optimized buttery smooth animations */
+  @media (max-width: 768px) {
+    .scroll-optimized {
+      scroll-behavior: auto;
+    }
+    
+    /* Reduce backdrop blur on mobile - lighter blur for performance */
+    .backdrop-blur-xl,
+    .backdrop-blur-lg {
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+    }
+    
+    .backdrop-blur-md,
+    .backdrop-blur {
+      backdrop-filter: blur(4px) !important;
+      -webkit-backdrop-filter: blur(4px) !important;
+    }
+    
+    /* Lighter shadows on mobile for performance */
+    .shadow-lg, .shadow-xl, .shadow-2xl {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* Force GPU acceleration on all animated elements */
+    .overflow-y-auto, .overflow-auto, .overflow-x-auto {
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      will-change: scroll-position;
+    }
+    
+    /* GPU accelerate common animated elements */
+    [class*="animate-"], 
+    [class*="transition-"],
+    .motion-safe {
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+  }
+  
+  /* Soft, gentle mobile animations */
+  @media (max-width: 768px) {
+    /* Soft fade animations - gentler timing */
+    @keyframes mobile-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes mobile-fade-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    
+    @keyframes mobile-slide-up {
+      from { 
+        opacity: 0; 
+        transform: translate3d(0, 12px, 0); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translate3d(0, 0, 0); 
+      }
+    }
+    
+    @keyframes mobile-slide-down {
+      from { 
+        opacity: 0; 
+        transform: translate3d(0, -12px, 0); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translate3d(0, 0, 0); 
+      }
+    }
+    
+    @keyframes mobile-scale-in {
+      from { 
+        opacity: 0; 
+        transform: translate3d(0, 0, 0) scale(0.97); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translate3d(0, 0, 0) scale(1); 
+      }
+    }
+    
+    /* Softer bounce - less aggressive */
+    @keyframes mobile-bounce-in {
+      0% { 
+        opacity: 0; 
+        transform: translate3d(0, 0, 0) scale(0.95); 
+      }
+      70% { 
+        transform: translate3d(0, 0, 0) scale(1.01); 
+      }
+      100% { 
+        opacity: 1; 
+        transform: translate3d(0, 0, 0) scale(1); 
+      }
+    }
+    
+    /* Apply soft animations - gentler easing */
+    .mobile-fade-in {
+      animation: mobile-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    
+    .mobile-slide-up {
+      animation: mobile-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    
+    .mobile-slide-down {
+      animation: mobile-slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    
+    .mobile-scale-in {
+      animation: mobile-scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    
+    .mobile-bounce-in {
+      animation: mobile-bounce-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+  }
+  
+  /* GPU-accelerated utility classes for mobile */
+  .gpu-accelerate {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000px;
+  }
+  
+  /* Soft transitions - gentler feel */
+  .transition-smooth {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateZ(0);
+  }
+  
+  .transition-fast {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateZ(0);
+  }
+  
+  .transition-soft {
+    transition: all 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+    transform: translateZ(0);
+  }
+  
+  .transition-bounce {
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateZ(0);
   }
 
   /* Content visibility for off-screen optimization */
@@ -57,8 +210,13 @@
 
   /* Optimize list items for scroll performance */
   .scroll-item {
-    contain: layout style paint;
-    will-change: auto;
+    contain: content;
+  }
+  
+  /* Prevent image layout shift - set dimensions */
+  img, video {
+    max-width: 100%;
+    height: auto;
   }
 
   /* Smooth scrolling for all devices */
@@ -77,37 +235,58 @@
 
   /* Smooth mouse wheel scrolling on PC */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+    scrollbar-width: auto;
+    scrollbar-color: rgba(180, 180, 180, 0.6) rgba(240, 240, 240, 0.3);
   }
 
   *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
   }
 
   *::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(240, 240, 240, 0.3);
+    border-radius: 10px;
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: rgba(155, 155, 155, 0.5);
-    border-radius: 20px;
-    border: 2px solid transparent;
-    background-clip: content-box;
+    background: linear-gradient(180deg, rgba(180, 180, 180, 0.7) 0%, rgba(150, 150, 150, 0.8) 100%);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    min-height: 50px;
+    transition: background 0.2s ease;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(155, 155, 155, 0.7);
+    background: linear-gradient(180deg, rgba(150, 150, 150, 0.9) 0%, rgba(120, 120, 120, 1) 100%);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgba(120, 120, 120, 1) 0%, rgba(100, 100, 100, 1) 100%);
+    background-clip: padding-box;
   }
 
   /* Dark mode scrollbar */
+  .dark * {
+    scrollbar-color: rgba(100, 100, 100, 0.6) rgba(30, 30, 30, 0.3);
+  }
+
+  .dark *::-webkit-scrollbar-track {
+    background: rgba(30, 30, 30, 0.3);
+  }
+
   .dark *::-webkit-scrollbar-thumb {
-    background-color: rgba(100, 100, 100, 0.5);
+    background: linear-gradient(180deg, rgba(100, 100, 100, 0.7) 0%, rgba(80, 80, 80, 0.8) 100%);
   }
 
   .dark *::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(100, 100, 100, 0.7);
+    background: linear-gradient(180deg, rgba(130, 130, 130, 0.9) 0%, rgba(100, 100, 100, 1) 100%);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgba(150, 150, 150, 1) 0%, rgba(120, 120, 120, 1) 100%);
   }
 
   .dark body {
@@ -243,6 +422,63 @@
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Smooth visible scrollbar - use this for main content areas */
+  .scrollbar-smooth {
+    scrollbar-width: auto;
+    scrollbar-color: rgba(180, 180, 180, 0.6) rgba(240, 240, 240, 0.3);
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .scrollbar-smooth::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .scrollbar-smooth::-webkit-scrollbar-track {
+    background: rgba(240, 240, 240, 0.4);
+    border-radius: 10px;
+    margin: 4px;
+  }
+  
+  .scrollbar-smooth::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #c0c0c0 0%, #a0a0a0 100%);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    min-height: 60px;
+  }
+  
+  .scrollbar-smooth::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #a0a0a0 0%, #808080 100%);
+    background-clip: padding-box;
+  }
+  
+  .scrollbar-smooth::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, #808080 0%, #606060 100%);
+    background-clip: padding-box;
+  }
+  
+  .dark .scrollbar-smooth {
+    scrollbar-color: rgba(120, 120, 120, 0.6) rgba(40, 40, 40, 0.4);
+  }
+  
+  .dark .scrollbar-smooth::-webkit-scrollbar-track {
+    background: rgba(40, 40, 40, 0.4);
+  }
+  
+  .dark .scrollbar-smooth::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #606060 0%, #505050 100%);
+  }
+  
+  .dark .scrollbar-smooth::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #707070 0%, #606060 100%);
+  }
+  
+  .dark .scrollbar-smooth::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, #808080 0%, #707070 100%);
+  }
 
   /* Skeleton Loading - Simplified */
   .skeleton {
@@ -430,6 +666,140 @@
 .loading-spinner {
   animation: spin 1s linear infinite;
 }
+
+/* Buttery smooth keyframe animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0; 
+    transform: translate3d(0, 20px, 0); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0); 
+  }
+}
+
+@keyframes slide-down {
+  from { 
+    opacity: 0; 
+    transform: translate3d(0, -20px, 0); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0); 
+  }
+}
+
+@keyframes scale-in {
+  from { 
+    opacity: 0; 
+    transform: translate3d(0, 0, 0) scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0) scale(1); 
+  }
+}
+
+@keyframes scale-out {
+  from { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0) scale(1); 
+  }
+  to { 
+    opacity: 0; 
+    transform: translate3d(0, 0, 0) scale(0.95); 
+  }
+}
+
+@keyframes bounce-in {
+  0% { 
+    opacity: 0; 
+    transform: translate3d(0, 0, 0) scale(0.9); 
+  }
+  60% { 
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.03); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0) scale(1); 
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-5px, 0, 0); }
+  75% { transform: translate3d(5px, 0, 0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -5px, 0); }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-scale-out {
+  animation: scale-out 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-shake {
+  animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-pulse-smooth {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Stagger animation delays */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
 
 /* Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {

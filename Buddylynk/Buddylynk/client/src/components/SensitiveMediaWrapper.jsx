@@ -47,25 +47,19 @@ const SensitiveMediaWrapper = ({ children, isSensitive = false, className = "" }
                     {children}
                 </div>
                 
-                {/* Overlay with reveal button */}
-                <motion.div 
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                >
+                {/* Overlay with reveal button - simplified for performance */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl">
                     <AlertTriangle className="w-10 h-10 text-orange-500 mb-3" />
                     <p className="text-white font-medium mb-1">Sensitive Content</p>
                     <p className="text-gray-300 text-sm mb-4">This content may be sensitive</p>
-                    <motion.button
+                    <button
                         onClick={() => setRevealed(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors active:scale-95"
                     >
                         <Eye className="w-4 h-4" />
                         <span>Show Content</span>
-                    </motion.button>
-                </motion.div>
+                    </button>
+                </div>
             </div>
         );
     }

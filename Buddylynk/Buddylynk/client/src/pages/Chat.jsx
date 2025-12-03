@@ -11,6 +11,7 @@ import CallModal from "../components/CallModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { AvatarWithStatus, OnlineBadge } from "../components/OnlineIndicator";
 import HamsterLoader from "../components/HamsterLoader";
+import InstagramImageViewer from "../components/InstagramImageViewer";
 import { containerVariants, itemVariants, scaleVariants, slideUpVariants, fastTransition } from "../utils/animations";
 
 const Chat = () => {
@@ -39,6 +40,8 @@ const Chat = () => {
     const [mediaPreview, setMediaPreview] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [fullScreenImage, setFullScreenImage] = useState(null);
+    const [fullScreenImages, setFullScreenImages] = useState([]);
+    const [fullScreenIndex, setFullScreenIndex] = useState(0);
     const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
     const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
@@ -426,20 +429,9 @@ const Chat = () => {
 
     const uploadMedia = async (file) => {
         try {
-            const token = localStorage.getItem("token");
-            
-            // Use server-side upload (more reliable than presigned URLs)
-            const formData = new FormData();
-            formData.append('media', file);
-            
-            const res = await axios.post('/api/upload/server', formData, {
-                headers: { 
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            return res.data.url;
+            // Use optimized upload with compression
+            const { uploadViaServer } = await import('../utils/serverUpload');
+            return await uploadViaServer(file);
         } catch (error) {
             console.error("Error uploading media:", error);
             throw error;
@@ -541,7 +533,7 @@ const Chat = () => {
                             </div>
                         </div>
                         {/* Conversations List */}
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="flex-1 overflow-y-auto scrollbar-smooth">
                             {loading ? (
                                 // Hamster Loading Animation
                                 <div className="flex justify-center items-center py-12">
@@ -642,9 +634,12 @@ const Chat = () => {
 
                                 {/* Messages - WhatsApp Style with Background Pattern */}
                                 <div 
-                                    className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 space-y-3 dark:bg-[#0b141a] bg-gray-100"
+                                    className="flex-1 overflow-y-auto scrollbar-smooth p-4 pb-20 md:pb-4 space-y-3 dark:bg-[#0b141a] bg-gray-100"
                                     style={{
-                                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03' class='dark:fill-white'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03' class='dark:fill-white'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                                        willChange: 'scroll-position',
+                                        transform: 'translateZ(0)',
+                                        WebkitOverflowScrolling: 'touch'
                                     }}
                                 >
                                     <AnimatePresence>
@@ -696,13 +691,13 @@ const Chat = () => {
                                                                     {message.mediaUrl && (
                                                                         <div className="mb-2">
                                                                             {Array.isArray(message.mediaUrl) ? (
-                                                                                // Multiple media - grid layout
+                                                                                // Multiple media - grid layout with optimized rendering
                                                                                 <div className={`grid gap-1 rounded-lg overflow-hidden ${
                                                                                     message.mediaUrl.length === 1 ? 'grid-cols-1' :
                                                                                     message.mediaUrl.length === 2 ? 'grid-cols-2' :
                                                                                     message.mediaUrl.length === 3 ? 'grid-cols-2' :
                                                                                     'grid-cols-2'
-                                                                                }`} style={{ maxWidth: '280px' }}>
+                                                                                }`} style={{ maxWidth: '280px', willChange: 'transform', transform: 'translateZ(0)' }}>
                                                                                     {message.mediaUrl.slice(0, 4).map((url, idx) => {
                                                                                         const isVideo = message.mediaType?.[idx] === 'video' || url.includes('.mp4') || url.includes('.webm');
                                                                                         const isLastWithMore = idx === 3 && message.mediaUrl.length > 4;
@@ -712,7 +707,12 @@ const Chat = () => {
                                                                                                 className={`relative overflow-hidden ${
                                                                                                     message.mediaUrl.length === 3 && idx === 0 ? 'col-span-2' : ''
                                                                                                 }`}
-                                                                                                style={{ aspectRatio: message.mediaUrl.length === 1 ? 'auto' : '1' }}
+                                                                                                style={{ 
+                                                                                                    aspectRatio: message.mediaUrl.length === 1 ? 'auto' : '1',
+                                                                                                    willChange: 'transform',
+                                                                                                    transform: 'translateZ(0)',
+                                                                                                    backfaceVisibility: 'hidden'
+                                                                                                }}
                                                                                             >
                                                                                                 {isVideo ? (
                                                                                                     <video 
@@ -722,6 +722,7 @@ const Chat = () => {
                                                                                                         disablePictureInPicture
                                                                                                         onContextMenu={(e) => e.preventDefault()}
                                                                                                         className="w-full h-full object-cover"
+                                                                                                        style={{ willChange: 'transform', transform: 'translateZ(0)' }}
                                                                                                     />
                                                                                                 ) : (
                                                                                                     <img 
@@ -730,7 +731,8 @@ const Chat = () => {
                                                                                                         className={`w-full h-full cursor-pointer hover:opacity-90 transition-all ${
                                                                                                             message.mediaUrl.length === 1 ? 'max-h-64 object-contain' : 'object-cover'
                                                                                                         }`}
-                                                                                                        onClick={() => setFullScreenImage(url)}
+                                                                                                        onClick={() => { const images = message.mediaUrl.filter((_, i) => message.mediaType?.[i] !== 'video').map(u => ({ url: u, type: 'image' })); setFullScreenImages(images); setFullScreenIndex(images.findIndex(img => img.url === url) || 0); }}
+                                                                                                        style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                                                                                                     />
                                                                                                 )}
                                                                                                 {isLastWithMore && (
@@ -752,13 +754,15 @@ const Chat = () => {
                                                                                         disablePictureInPicture
                                                                                         onContextMenu={(e) => e.preventDefault()}
                                                                                         className="max-w-full rounded-lg max-h-64"
+                                                                                        style={{ willChange: 'transform', transform: 'translateZ(0)' }}
                                                                                     />
                                                                                 ) : (
                                                                                     <img 
                                                                                         src={message.mediaUrl} 
                                                                                         alt="Media" 
                                                                                         className="max-w-full rounded-lg max-h-64 cursor-pointer hover:opacity-90 transition-all"
-                                                                                        onClick={() => setFullScreenImage(message.mediaUrl)}
+                                                                                        onClick={() => { setFullScreenImages([{ url: message.mediaUrl, type: 'image' }]); setFullScreenIndex(0); }}
+                                                                                        style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                                                                                     />
                                                                                 )
                                                                             )}
@@ -1404,34 +1408,14 @@ const Chat = () => {
                 type="danger"
             />
             
-            {/* Full Screen Image Viewer */}
-            <AnimatePresence>
-                {fullScreenImage && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center"
-                        onClick={() => setFullScreenImage(null)}
-                    >
-                        <button
-                            onClick={() => setFullScreenImage(null)}
-                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
-                        >
-                            <X className="w-6 h-6 text-white" />
-                        </button>
-                        <motion.img
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            src={fullScreenImage}
-                            alt="Full size"
-                            className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Enhanced Full Screen Image Viewer with Navigation */}
+            <InstagramImageViewer
+                isOpen={fullScreenImages.length > 0}
+                onClose={() => { setFullScreenImages([]); setFullScreenIndex(0); }}
+                images={fullScreenImages}
+                initialIndex={fullScreenIndex}
+                postData={null}
+            />
             
             {/* Telegram-style Media Preview Modal - Shows how it will look after sending */}
             <AnimatePresence>

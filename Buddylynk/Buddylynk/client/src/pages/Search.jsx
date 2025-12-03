@@ -238,12 +238,74 @@ const Search = () => {
                             </AnimatePresence>
                         </motion.div>
 
+                        {/* Recent Searches - Mobile (show when no query) */}
+                        {!query && recentSearches.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="glass-panel p-4 lg:hidden"
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold dark:text-white text-gray-900 flex items-center gap-2">
+                                        <Clock className="w-5 h-5 text-primary" />
+                                        Recent Searches
+                                    </h3>
+                                    <button
+                                        onClick={clearAllRecentSearches}
+                                        className="text-xs text-theme-secondary hover:text-primary transition-colors"
+                                    >
+                                        Clear all
+                                    </button>
+                                </div>
+                                <div className="space-y-1">
+                                    {recentSearches.slice(0, 8).map((search, index) => (
+                                        <motion.div
+                                            key={index}
+                                            className="flex items-center justify-between p-3 rounded-xl dark:bg-white/5 bg-gray-50 dark:hover:bg-white/10 hover:bg-gray-100 transition-colors group"
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: index * 0.03 }}
+                                        >
+                                            <button
+                                                onClick={() => handleRecentSearchClick(search)}
+                                                className="flex-1 flex items-center gap-3 text-left"
+                                            >
+                                                <Clock className="w-4 h-4 text-theme-muted" />
+                                                <span className="dark:text-white text-gray-900 text-sm">{search}</span>
+                                            </button>
+                                            <motion.button
+                                                onClick={(e) => { e.stopPropagation(); clearRecentSearch(search); }}
+                                                className="p-1.5 rounded-full dark:hover:bg-white/10 hover:bg-gray-200 transition-colors"
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                            >
+                                                <X className="w-4 h-4 text-theme-muted hover:text-red-500" />
+                                            </motion.button>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* Trending/Suggested - Mobile (show when no query and no recent) */}
+                        {!query && recentSearches.length === 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="glass-panel p-6 text-center lg:hidden"
+                            >
+                                <SearchIcon className="w-12 h-12 text-theme-muted mx-auto mb-3" />
+                                <h3 className="font-semibold dark:text-white text-gray-900 mb-1">Search Buddylynk</h3>
+                                <p className="text-sm text-theme-secondary">Find users, posts, and more</p>
+                            </motion.div>
+                        )}
+
                         {/* Search Results */}
                         {loading ? (
                             <div className="glass-panel p-12 flex justify-center">
                                 <HamsterLoader size="medium" text="Searching..." />
                             </div>
-                        ) : (
+                        ) : query ? (
                             <motion.div 
                                 className="space-y-6"
                                 variants={containerVariants}
@@ -322,7 +384,7 @@ const Search = () => {
                                     </motion.div>
                                 )}
 
-                                {query && results.users.length === 0 && results.posts.length === 0 && !loading && (
+                                {results.users.length === 0 && results.posts.length === 0 && !loading && (
                                     <motion.div 
                                         variants={itemVariants}
                                         className="glass-panel p-12 text-center"
@@ -333,7 +395,7 @@ const Search = () => {
                                     </motion.div>
                                 )}
                             </motion.div>
-                        )}
+                        ) : null}
                     </div>
 
                     {/* Desktop Sidebar */}

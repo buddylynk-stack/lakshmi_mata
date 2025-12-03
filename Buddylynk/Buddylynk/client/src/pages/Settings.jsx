@@ -184,70 +184,132 @@ const Settings = () => {
                     </motion.div>
 
                     {/* Sensitive Content Section */}
-                    <motion.div variants={itemVariants} className="glass-panel p-6">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-xl bg-orange-500/20">
+                    <motion.div variants={itemVariants} className="glass-panel p-5 sm:p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-500/20">
                                 <AlertTriangle className="w-5 h-5 text-orange-500" />
                             </div>
-                            <h2 className="text-xl font-bold dark:text-white text-gray-900">Sensitive Content</h2>
+                            <div>
+                                <h2 className="text-lg sm:text-xl font-bold dark:text-white text-gray-900">Sensitive Content</h2>
+                                <p className="text-xs sm:text-sm text-theme-secondary mt-0.5">
+                                    Control how sensitive content appears
+                                </p>
+                            </div>
                         </div>
 
-                        <p className="text-sm text-theme-secondary mb-4">
-                            Choose how you want to handle potentially sensitive content in your feed
-                        </p>
-
-                        <div className="space-y-3">
+                        <div className="grid gap-2.5 sm:gap-3">
                             {[
-                                { value: "show", label: "Show", description: "Always show sensitive content", icon: Eye },
-                                { value: "blur", label: "Blur", description: "Blur sensitive content until tapped", icon: EyeOff },
-                                { value: "hide", label: "Hide", description: "Hide all sensitive content", icon: Shield }
-                            ].map((option) => (
-                                <motion.button
-                                    key={option.value}
-                                    onClick={() => {
-                                        setSensitiveContent(option.value);
-                                        localStorage.setItem("sensitiveContentSetting", option.value);
-                                    }}
-                                    className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
-                                        sensitiveContent === option.value
-                                            ? "dark:bg-primary/20 bg-primary/10 border-2 border-primary"
-                                            : "dark:bg-white/5 bg-gray-50 dark:hover:bg-white/10 hover:bg-gray-100 border-2 border-transparent"
-                                    }`}
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-xl ${
-                                            sensitiveContent === option.value
-                                                ? "bg-primary/30"
-                                                : "dark:bg-white/10 bg-gray-200"
-                                        }`}>
-                                            <option.icon className={`w-5 h-5 ${
-                                                sensitiveContent === option.value
-                                                    ? "text-primary"
-                                                    : "text-theme-secondary"
-                                            }`} />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className={`font-medium ${
-                                                sensitiveContent === option.value
-                                                    ? "text-primary"
-                                                    : "dark:text-white text-gray-900"
-                                            }`}>{option.label}</p>
-                                            <p className="text-sm text-theme-secondary">{option.description}</p>
-                                        </div>
-                                    </div>
-                                    {sensitiveContent === option.value && (
-                                        <motion.div
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            className="w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                                { 
+                                    value: "show", 
+                                    label: "Show", 
+                                    description: "Always show sensitive content", 
+                                    icon: Eye,
+                                    gradient: "from-emerald-500 to-green-600",
+                                    bgGradient: "from-emerald-500/15 to-green-500/15",
+                                    iconBg: "bg-emerald-500/20"
+                                },
+                                { 
+                                    value: "blur", 
+                                    label: "Blur", 
+                                    description: "Blur until tapped to reveal", 
+                                    icon: EyeOff,
+                                    gradient: "from-violet-500 to-purple-600",
+                                    bgGradient: "from-violet-500/15 to-purple-500/15",
+                                    iconBg: "bg-violet-500/20"
+                                },
+                                { 
+                                    value: "hide", 
+                                    label: "Hide", 
+                                    description: "Hide all sensitive content", 
+                                    icon: Shield,
+                                    gradient: "from-slate-500 to-gray-600",
+                                    bgGradient: "from-slate-500/15 to-gray-500/15",
+                                    iconBg: "bg-slate-500/20"
+                                }
+                            ].map((option) => {
+                                const isSelected = sensitiveContent === option.value;
+                                return (
+                                    <motion.button
+                                        key={option.value}
+                                        onClick={() => {
+                                            setSensitiveContent(option.value);
+                                            localStorage.setItem("sensitiveContentSetting", option.value);
+                                        }}
+                                        className={`relative w-full flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl transition-all duration-300 overflow-hidden ${
+                                            isSelected
+                                                ? `bg-gradient-to-r ${option.bgGradient} dark:bg-gradient-to-r shadow-lg`
+                                                : "dark:bg-white/5 bg-white dark:hover:bg-white/8 hover:bg-gray-50 shadow-sm hover:shadow-md"
+                                        }`}
+                                        whileHover={{ scale: 1.015, y: -1 }}
+                                        whileTap={{ scale: 0.985 }}
+                                        layout
+                                    >
+                                        {/* Selection indicator line */}
+                                        <motion.div 
+                                            className={`absolute left-0 top-0 bottom-0 w-1 rounded-full bg-gradient-to-b ${option.gradient}`}
+                                            initial={{ scaleY: 0 }}
+                                            animate={{ scaleY: isSelected ? 1 : 0 }}
+                                            transition={{ duration: 0.2 }}
+                                        />
+                                        
+                                        {/* Icon */}
+                                        <motion.div 
+                                            className={`relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-300 ${
+                                                isSelected 
+                                                    ? `bg-gradient-to-br ${option.gradient} shadow-lg` 
+                                                    : option.iconBg
+                                            }`}
+                                            animate={{ 
+                                                scale: isSelected ? 1.05 : 1,
+                                                rotate: isSelected ? [0, -5, 5, 0] : 0
+                                            }}
+                                            transition={{ duration: 0.3 }}
                                         >
-                                            <Check className="w-4 h-4 text-white" />
+                                            <option.icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-300 ${
+                                                isSelected ? "text-white" : "text-theme-secondary"
+                                            }`} />
                                         </motion.div>
-                                    )}
-                                </motion.button>
-                            ))}
+                                        
+                                        {/* Text content */}
+                                        <div className="flex-1 text-left min-w-0">
+                                            <p className={`font-semibold text-sm sm:text-base transition-colors duration-300 ${
+                                                isSelected
+                                                    ? "dark:text-white text-gray-900"
+                                                    : "dark:text-white/90 text-gray-800"
+                                            }`}>{option.label}</p>
+                                            <p className={`text-xs sm:text-sm mt-0.5 transition-colors duration-300 truncate ${
+                                                isSelected 
+                                                    ? "dark:text-white/70 text-gray-600" 
+                                                    : "text-theme-secondary"
+                                            }`}>{option.description}</p>
+                                        </div>
+                                        
+                                        {/* Checkmark */}
+                                        <motion.div
+                                            className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                                isSelected 
+                                                    ? `bg-gradient-to-br ${option.gradient} shadow-md` 
+                                                    : "dark:bg-white/10 bg-gray-100"
+                                            }`}
+                                            animate={{ 
+                                                scale: isSelected ? [1, 1.2, 1] : 1,
+                                            }}
+                                            transition={{ duration: 0.3 }}
+                                        >
+                                            <motion.div
+                                                initial={{ scale: 0, opacity: 0 }}
+                                                animate={{ 
+                                                    scale: isSelected ? 1 : 0, 
+                                                    opacity: isSelected ? 1 : 0 
+                                                }}
+                                                transition={{ duration: 0.2 }}
+                                            >
+                                                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" strokeWidth={3} />
+                                            </motion.div>
+                                        </motion.div>
+                                    </motion.button>
+                                );
+                            })}
                         </div>
                     </motion.div>
 
