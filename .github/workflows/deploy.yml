@@ -33,61 +33,132 @@ jobs:
           envs: AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,S3_BUCKET_NAME,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,JWT_SECRET
           script: |
             set -e
-            echo "Starting deployment"
+            echo "🚀 Starting deployment at $(date)"
+            
+            # Load NVM
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # Navigate to project directory
             cd ~/lakshmi_mata
-            echo "Pulling latest code..."
+            
+            # Stash any local changes and pull latest code
+            echo "📥 Pulling latest code from GitHub..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
-            echo "Detecting project folder..."
+            
+            # Auto-detect the correct folder path
+            echo "🔍 Auto-detecting project folder..."
             if [ -d "Buddylynk/Buddylynk" ]; then
-              PROJECT_PATH="Buddylynk/Buddylynk"
+                PROJECT_PATH="Buddylynk/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
             elif [ -d "Buddylynk_P2.6/Buddylynk" ]; then
-              PROJECT_PATH="Buddylynk_P2.6/Buddylynk"
+                PROJECT_PATH="Buddylynk_P2.6/Buddylynk"
+                echo "✅ Found project at: $PROJECT_PATH"
             else
-              echo "Could not find project folder"
-              exit 1
+                echo "❌ Could not find project folder!"
+                exit 1
             fi
-            echo "Found project at $PROJECT_PATH"
+            
+            # Clean up old folders (keep only the current one)
+            echo "🧹 Cleaning up old folders..."
+            for dir in Buddylynk*; do
+                if [ -d "$dir" ] && [ "$dir" != "${PROJECT_PATH%%/*}" ]; then
+                    echo "🗑️  Removing old folder: $dir"
+                    rm -rf "$dir"
+                fi
+            done
+            
+            # Update Nginx configuration to point to detected path
+            echo "📝 Updating Nginx configuration..."
             NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
-            echo "Stopping PM2..."
+            if [ -f "/etc/nginx/sites-available/buddylynk" ]; then
+                sudo cp /etc/nginx/sites-available/buddylynk /etc/nginx/sites-available/buddylynk.backup
+                # Replace any old path with the new detected path
+                sudo sed -i "s|root /home/ubuntu/lakshmi_mata/[^;]*;|root $NGINX_PATH;|g" /etc/nginx/sites-available/buddylynk
+                echo "✅ Nginx config updated to: $NGINX_PATH"
+            fi
+            
+            # Test Nginx configuration
+            echo "🧪 Testing Nginx configuration..."
+            sudo nginx -t
+            
+            # Stop all PM2 processes
+            echo "🛑 Stopping PM2 processes..."
             pm2 stop all || true
             pm2 delete all || true
-            echo "Installing backend dependencies..."
+            
+            # Update backend
+            echo "🔧 Installing backend dependencies..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
             npm install --production --legacy-peer-deps
-            echo "Building frontend..."
+            
+            # Update frontend
+            echo "🎨 Building frontend..."
             cd ~/lakshmi_mata/$PROJECT_PATH/client
             npm install --legacy-peer-deps
             npm run build
-            echo "Checking Redis..."
+            
+            # Check and start Redis
+            echo "🔴 Checking Redis status..."
             if ! systemctl is-active --quiet redis-server; then
-              sudo systemctl start redis-server
-              sudo systemctl enable redis-server
+                echo "Starting Redis..."
+                sudo systemctl start redis-server
+                sudo systemctl enable redis-server
             fi
-            echo "Setting up environment..."
+            echo "✅ Redis is running"
+            
+            # Ensure .env file exists with environment variables
+            echo "📝 Setting up environment variables..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            echo "AWS_REGION=${AWS_REGION:-us-east-1}" > .env
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
-            echo "S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}" >> .env
-            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env
-            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env
-            echo "PORT=5000" >> .env
-            echo "JWT_SECRET=${JWT_SECRET}" >> .env
-            echo "REDIS_HOST=localhost" >> .env
-            echo "REDIS_PORT=6379" >> .env
-            echo "NSFW_API_URL=http://35.227.39.141:8002/nsfw" >> .env
-            echo "ENABLE_NSFW_CHECK=true" >> .env
-            echo "RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend" >> .env
-            echo "Starting backend..."
+            if [ ! -f .env ]; then
+                echo "Creating .env file..."
+                cat > .env << EOF
+            # AWS Configuration
+            AWS_REGION=${AWS_REGION:-us-east-1}
+            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            
+            # S3 Bucket Name
+            S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
+            
+            # Google OAuth Configuration
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            
+            # Server Configuration
+            PORT=5000
+            JWT_SECRET=${JWT_SECRET}
+            
+            # Redis Configuration
+            REDIS_HOST=localhost
+            REDIS_PORT=6379
+            EOF
+                echo "✅ .env file created"
+            else
+                echo "✅ .env file already exists"
+            fi
+            
+            # Start backend with PM2
+            echo "🚀 Starting backend server..."
             pm2 start index.js --name buddylynk-server
             pm2 save
+            
+            # Give permissions
             chmod -R 755 ~/lakshmi_mata
-            echo "Restarting Nginx..."
+            
+            # Restart Nginx
+            echo "🔄 Restarting Nginx..."
             sudo systemctl restart nginx
-            echo "Deployment completed!"
+            
+            echo "✅ Deployment completed successfully at $(date)!"
+            
+            # Show status
             pm2 status
-            echo "Zigzag algorithm and ML recommendations active!"
+            
+            # Show recent logs
+            echo "📋 Recent server logs:"
+            pm2 logs buddylynk-server --lines 10 --nostream || true
+            
+            echo "🌐 Site is live at https://buddylynk.com"
