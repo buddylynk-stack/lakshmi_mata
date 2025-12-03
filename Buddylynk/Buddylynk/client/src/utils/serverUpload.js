@@ -64,35 +64,56 @@ const compressImage = (file) => {
 
 // Upload via presigned URL (fastest - direct to S3)
 const uploadViaPresignedUrl = async (file, onProgress) => {
-    try {
-        const token = localStorage.getItem('token');
-        
-        // Get presigned URL
-        const { data } = await axios.post(`${API_BASE_URL}/upload/presigned-url`, {
-            fileName: file.name,
-            fileType: file.type
-        }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+    const token = localStorage.getItem('token');
+    
+    console.log('🚀 Starting direct S3 upload for:', file.name);
+    
+    // Get presigned URL from server
+    const { data } = await axios.post(`${API_BASE_URL}/upload/presigned-url`, {
+        fileName: file.name,
+        fileType: file.type
+    }, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
 
-        // Upload directly to S3
-        await axios.put(data.uploadUrl, file, {
-            headers: {
-                'Content-Type': file.type
-            },
-            onUploadProgress: (progressEvent) => {
-                if (progressEvent.lengthComputable && onProgress) {
-                    const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    onProgress(percent);
-                }
+    console.log('📝 Got presigned URL, uploading directly to S3...');
+
+    // Upload directly to S3 using XMLHttpRequest for better progress tracking
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable && onProgress) {
+                const percent = Math.round((e.loaded * 100) / e.total);
+                onProgress(percent);
             }
         });
 
-        return data.fileUrl;
-    } catch (error) {
-        console.error('Presigned URL upload failed:', error);
-        throw error;
-    }
+        xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                console.log('✅ Direct S3 upload successful!');
+                resolve(data.fileUrl);
+            } else {
+                console.error('❌ S3 upload failed with status:', xhr.status);
+                reject(new Error(`S3 upload failed: ${xhr.status}`));
+            }
+        });
+
+        xhr.addEventListener('error', () => {
+            console.error('❌ S3 upload network error');
+            reject(new Error('Network error during S3 upload'));
+        });
+
+        xhr.addEventListener('timeout', () => {
+            console.error('❌ S3 upload timeout');
+            reject(new Error('S3 upload timeout'));
+        });
+
+        xhr.open('PUT', data.uploadUrl);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.timeout = 300000; // 5 minute timeout
+        xhr.send(file);
+    });
 };
 
 // Upload via server (fallback - more reliable)
