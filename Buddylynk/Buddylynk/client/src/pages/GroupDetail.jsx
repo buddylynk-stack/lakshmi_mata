@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
@@ -10,8 +10,13 @@ import ConfirmModal from "../components/ConfirmModal";
 import ChannelInfo from "../components/ChannelInfo";
 import VideoPlayer from "../components/VideoPlayer";
 import SensitiveMediaWrapper from "../components/SensitiveMediaWrapper";
+import InstagramImageViewer from "../components/InstagramImageViewer";
 import { containerVariants, itemVariants, scaleVariants, slideUpVariants, fastTransition } from "../utils/animations";
+import { uploadMultipleFiles } from "../utils/serverUpload";
 import axios from "axios";
+
+// Detect mobile device for performance optimizations
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
 
 const GroupDetail = () => {
     const { id } = useParams();
@@ -35,6 +40,8 @@ const GroupDetail = () => {
     const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
     const [showChannelInfo, setShowChannelInfo] = useState(false);
     const [fullScreenImage, setFullScreenImage] = useState(null);
+    const [fullScreenImages, setFullScreenImages] = useState([]);
+    const [fullScreenIndex, setFullScreenIndex] = useState(0);
     const [showMediaOptionsMenu, setShowMediaOptionsMenu] = useState(false);
     const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
@@ -78,14 +85,44 @@ const GroupDetail = () => {
     }, [group?.posts]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
     };
 
     const fetchGroup = async () => {
+        // Try cache first for instant load
+        const cacheKey = `buddylynk_group_${id}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+            try {
+                const { group: cachedGroup, timestamp } = JSON.parse(cachedData);
+                const cacheAge = Date.now() - timestamp;
+                // Use cache if less than 1 minute old
+                if (cacheAge < 60000 && cachedGroup) {
+                    setGroup(cachedGroup);
+                    setLoading(false);
+                    // Fetch fresh data in background
+                    fetchFreshGroup();
+                    return;
+                }
+            } catch (e) {
+                sessionStorage.removeItem(cacheKey);
+            }
+        }
+        
         setLoading(true);
+        await fetchFreshGroup();
+    };
+    
+    const fetchFreshGroup = async () => {
         try {
-            const res = await axios.get(`/api/groups/${id}`);
+            const res = await axios.get(`/api/groups/${id}`, { timeout: 10000 });
             setGroup(res.data);
+            // Cache the group
+            sessionStorage.setItem(`buddylynk_group_${id}`, JSON.stringify({
+                group: res.data,
+                timestamp: Date.now()
+            }));
         } catch (error) {
             console.error("Error fetching group:", error);
         } finally {
@@ -373,13 +410,13 @@ const GroupDetail = () => {
 
             </div>
 
-            {/* Messages Area with WhatsApp Background Pattern - Optimized for mobile scroll */}
+            {/* Messages Area - Optimized for mobile scroll */}
             <div 
-                className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 space-y-3 scroll-optimized"
+                className="flex-1 overflow-y-auto scrollbar-smooth px-1 py-2 pb-20 md:pb-4 space-y-2 dark:bg-[#0b141a] bg-gray-50"
                 style={{
-                    WebkitOverflowScrolling: 'touch',
-                    overscrollBehavior: 'contain',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                    willChange: 'scroll-position',
+                    transform: 'translateZ(0)',
+                    WebkitOverflowScrolling: 'touch'
                 }}
             >
                 {/* Show messages for public channels (or if member) */}
@@ -390,14 +427,13 @@ const GroupDetail = () => {
                         return (
                             <div
                                 key={post.postId}
-                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative scroll-item`}
-                                style={{ contain: 'layout style paint' }}
+                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
                             >
                                 <div className="relative">
-                                <div className={`max-w-[100vw] sm:max-w-[100vw] md:max-w-[100vw] lg:max-w-[100vw] px-3 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
+                                <div className={`${post.media ? 'w-full max-w-full' : 'max-w-[85vw] sm:max-w-[70vw] md:max-w-[60vw] lg:max-w-[50vw]'} px-1 py-1 rounded-2xl ${
                                     isOwn 
-                                        ? 'bg-white/10 dark:bg-white/10 text-black dark:text-white rounded-br-none border-white/20 dark:border-white/20' 
-                                        : 'dark:bg-white/5 bg-white/70 dark:text-white text-black rounded-bl-none dark:border-white/10 border-gray-200/50'
+                                        ? 'bg-[#dcf8c6] dark:bg-[#005c4b] text-black dark:text-white rounded-br-none' 
+                                        : 'bg-white dark:bg-[#202c33] text-black dark:text-white rounded-bl-none'
                                 }`}>
                                     {!isOwn && (
                                         <p className="text-xs font-semibold text-primary mb-1">{post.username}</p>
@@ -412,16 +448,17 @@ const GroupDetail = () => {
                                                     <SensitiveMediaWrapper isSensitive={post.media[0].isNsfw || post.isNsfw}>
                                                         <div className="w-full">
                                                             {post.media[0].type === 'video' ? (
-                                                                <div className="w-full">
+                                                                <div className="w-full" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                                                                     <VideoPlayer src={post.media[0].url} className="w-full" />
                                                                 </div>
                                                             ) : post.media[0].type === 'image' ? (
-                                                                <div className="w-full magic-frame-container">
+                                                                <div className="w-full magic-frame-container" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                                                                     <SafeImage 
                                                                         src={post.media[0].url} 
                                                                         alt="Media" 
-                                                                        onClick={() => setFullScreenImage(post.media[0].url)} 
-                                                                        className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" 
+                                                                        onClick={() => { setFullScreenImages(post.media.filter(m => m.type === 'image').map(m => ({ url: m.url, type: 'image' }))); setFullScreenIndex(0); }} 
+                                                                        className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all"
+                                                                        style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                                                                     />
                                                                 </div>
                                                             ) : (
@@ -431,15 +468,15 @@ const GroupDetail = () => {
                                                     </SensitiveMediaWrapper>
                                                 ) : (
                                                     // Multiple media - full width magic frame container
-                                                    <div className="w-full magic-frame-container">
+                                                    <div className="w-full magic-frame-container" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                                                         <div className="flex flex-col gap-1 bg-black">
                                                             {post.media.map((mediaItem, idx) => (
                                                                 <SensitiveMediaWrapper key={idx} isSensitive={mediaItem.isNsfw || post.isNsfw}>
-                                                                    <div className="w-full">
+                                                                    <div className="w-full" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                                                                         {mediaItem.type === 'video' ? (
-                                                                            <VideoPlayer src={mediaItem.url} className="w-full" />
+                                                                            <VideoPlayer src={mediaItem.url} className="w-full" style={{ willChange: 'transform', transform: 'translateZ(0)' }} />
                                                                         ) : mediaItem.type === 'image' ? (
-                                                                            <SafeImage src={mediaItem.url} alt="Media" onClick={() => setFullScreenImage(mediaItem.url)} className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" />
+                                                                            <SafeImage src={mediaItem.url} alt="Media" onClick={() => { const images = post.media.filter(m => m.type === 'image').map(m => ({ url: m.url, type: 'image' })); setFullScreenImages(images); setFullScreenIndex(images.findIndex(img => img.url === mediaItem.url) || 0); }} className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-all" style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
                                                                         ) : (
                                                                             <a href={mediaItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 transition-colors text-sm"><Paperclip className="w-4 h-4" /><span className="truncate">{mediaItem.name || 'File'}</span></a>
                                                                         )}
@@ -452,15 +489,16 @@ const GroupDetail = () => {
                                             ) : (
                                                 // Old format - single media (backward compatibility)
                                                 <SensitiveMediaWrapper isSensitive={post.isNsfw}>
-                                                    <div className="flex justify-center">
+                                                    <div className="flex justify-center" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                                                         {post.mediaType === 'video' || (typeof post.media === 'string' && post.media.includes('.mp4')) ? (
-                                                            <VideoPlayer src={post.media} className="max-w-full max-h-[400px] rounded-lg" />
+                                                            <VideoPlayer src={post.media} className="max-w-full max-h-[400px] rounded-lg" style={{ willChange: 'transform', transform: 'translateZ(0)' }} />
                                                         ) : post.mediaType === 'image' || (typeof post.media === 'string' && post.media.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
                                                             <SafeImage 
                                                                 src={post.media} 
                                                                 alt="Media" 
-                                                                onClick={() => setFullScreenImage(post.media)}
-                                                                className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer hover:opacity-90 transition-all rounded-lg" 
+                                                                onClick={() => { setFullScreenImages([{ url: post.media, type: 'image' }]); setFullScreenIndex(0); }}
+                                                                className="max-w-full max-h-[400px] w-auto h-auto object-contain cursor-pointer rounded-lg"
+                                                                style={{ willChange: 'transform', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                                                             />
                                                         ) : (
                                                             <a href={post.media} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg">
@@ -1034,37 +1072,14 @@ const GroupDetail = () => {
                 confirmStyle="danger"
             />
 
-            {/* Full Screen Image Viewer */}
-            <AnimatePresence>
-                {fullScreenImage && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center"
-                        onClick={() => setFullScreenImage(null)}
-                    >
-                        {/* Close Button */}
-                        <button
-                            onClick={() => setFullScreenImage(null)}
-                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
-                        >
-                            <X className="w-6 h-6 text-white" />
-                        </button>
-                        
-                        {/* Full Size Image */}
-                        <motion.img
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            src={fullScreenImage}
-                            alt="Full size"
-                            className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Enhanced Full Screen Image Viewer with Navigation */}
+            <InstagramImageViewer
+                isOpen={fullScreenImages.length > 0}
+                onClose={() => { setFullScreenImages([]); setFullScreenIndex(0); }}
+                images={fullScreenImages}
+                initialIndex={fullScreenIndex}
+                postData={null}
+            />
             
             {/* Telegram-style Media Preview Modal - Shows how it will look after sending */}
             <AnimatePresence>

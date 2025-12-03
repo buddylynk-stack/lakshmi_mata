@@ -6,6 +6,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const compression = require("compression");
 const socketService = require("./services/socketService");
 const authRoutes = require("./routes/authRoutes");
 const postRoutes = require("./routes/postRoutes");
@@ -97,8 +98,27 @@ app.use(cors({
     },
     credentials: true
 }));
+// Enable gzip compression for faster responses
+app.use(compression({
+    level: 6, // Balanced compression
+    threshold: 1024, // Only compress responses > 1KB
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) return false;
+        return compression.filter(req, res);
+    }
+}));
+
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
+
+// Cache headers for API responses
+app.use('/api', (req, res, next) => {
+    // Cache GET requests for 30 seconds
+    if (req.method === 'GET') {
+        res.set('Cache-Control', 'public, max-age=30');
+    }
+    next();
+});
 
 // Serve uploads folder statically
 app.use("/uploads", express.static("uploads"));

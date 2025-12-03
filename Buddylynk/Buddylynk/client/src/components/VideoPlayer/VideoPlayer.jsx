@@ -171,6 +171,8 @@ const VideoPlayer = ({ src, className = "" }) => {
                 className="video-element"
                 onClick={togglePlay}
                 playsInline
+                preload="auto"
+                loading="eager"
             />
 
             {/* Loading Spinner */}

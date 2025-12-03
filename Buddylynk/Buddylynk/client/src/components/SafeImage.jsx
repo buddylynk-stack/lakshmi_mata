@@ -47,11 +47,13 @@ export const SafeAvatar = ({ src, alt, className, fallbackText, username, onClic
             className={className}
             onClick={onClick}
             onError={handleError}
+            loading="lazy"
+            decoding="async"
         />
     );
 };
 
-export const SafeImage = ({ src, alt, className, fallback = null, onClick }) => {
+export const SafeImage = ({ src, alt, className, fallback = null, onClick, loading = "lazy" }) => {
     const [error, setError] = useState(false);
 
     if (error && !fallback) {
@@ -65,6 +67,8 @@ export const SafeImage = ({ src, alt, className, fallback = null, onClick }) => 
             className={className}
             onClick={onClick}
             onError={() => setError(true)}
+            loading={loading}
+            decoding="async"
             style={error && !fallback ? { display: 'none' } : {}}
         />
     );
