@@ -35,9 +35,13 @@ jobs:
             set -e
             echo "🚀 Starting deployment at $(date)"
             
-            # Load NVM
+            # Load NVM and upgrade to Node 20
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm use 20
+            nvm alias default 20
+            echo "Node version: $(node -v)"
             
             # Navigate to project directory
             cd ~/lakshmi_mata
@@ -97,7 +101,10 @@ jobs:
             # Update frontend
             echo "🎨 Building frontend..."
             cd ~/lakshmi_mata/$PROJECT_PATH/client
+            source "$NVM_DIR/nvm.sh" && nvm use 20
+            echo "Using Node: $(node -v)"
             npm install --legacy-peer-deps
+            npm install terser --save-dev
             npm run build
             
             # Check and start Redis
