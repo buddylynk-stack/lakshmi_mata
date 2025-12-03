@@ -35,14 +35,24 @@
     position: relative;
     width: 100%;
     cursor: pointer;
+    background: #000;
+    border-radius: 0.8rem;
+    overflow: hidden;
 }
 
 .video-thumbnail {
     width: 100%;
     height: auto;
-    object-fit: cover;
+    max-height: 600px;
+    object-fit: contain;
     display: block;
     border-radius: 0.8rem;
+    pointer-events: none;
+}
+
+.video-thumbnail-wrapper:hover .play-button-large {
+    transform: scale(1.1);
+    background: rgba(139, 92, 246, 0.95);
 }
 
 /* Video placeholder while loading thumbnail */

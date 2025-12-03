@@ -25,6 +25,7 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const progressBarRef = useRef(null);
+    const thumbnailVideoRef = useRef(null);
     
     // Video doesn't load until user clicks
     const [videoActivated, setVideoActivated] = useState(false);
@@ -34,45 +35,32 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
-    const [thumbnailUrl, setThumbnailUrl] = useState(thumbnail || poster);
+    const [showThumbnailVideo, setShowThumbnailVideo] = useState(true);
     const controlsTimeoutRef = useRef(null);
 
-    // Generate thumbnail from video (first frame) if not provided
+    // Handle thumbnail video - show first frame
     useEffect(() => {
-        if (thumbnailUrl || !src) return;
-        
-        // Create a hidden video to extract thumbnail
-        const tempVideo = document.createElement('video');
-        tempVideo.crossOrigin = 'anonymous';
-        tempVideo.muted = true;
-        tempVideo.preload = 'metadata';
-        
-        tempVideo.onloadeddata = () => {
-            tempVideo.currentTime = 0.1; // Get frame at 0.1 seconds
+        const thumbVideo = thumbnailVideoRef.current;
+        if (!thumbVideo || !src || videoActivated) return;
+
+        const handleLoaded = () => {
+            // Seek to 0.5 seconds to get a good frame
+            thumbVideo.currentTime = 0.5;
         };
-        
-        tempVideo.onseeked = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = tempVideo.videoWidth;
-                canvas.height = tempVideo.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(tempVideo, 0, 0);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                setThumbnailUrl(dataUrl);
-            } catch (e) {
-                // CORS error - use video URL with time fragment as fallback
-                setThumbnailUrl(`${src}#t=0.1`);
-            }
-            tempVideo.remove();
+
+        const handleSeeked = () => {
+            // Thumbnail is ready
+            setShowThumbnailVideo(true);
         };
-        
-        tempVideo.onerror = () => {
-            setThumbnailUrl(`${src}#t=0.1`);
+
+        thumbVideo.addEventListener('loadeddata', handleLoaded);
+        thumbVideo.addEventListener('seeked', handleSeeked);
+
+        return () => {
+            thumbVideo.removeEventListener('loadeddata', handleLoaded);
+            thumbVideo.removeEventListener('seeked', handleSeeked);
         };
-        
-        tempVideo.src = src;
-    }, [src, thumbnailUrl]);
+    }, [src, videoActivated]);
 
     // Handle video events after activation
     useEffect(() => {
@@ -187,22 +175,22 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setShowControls(false)}
         >
-            {/* Show thumbnail until user clicks */}
+            {/* Show thumbnail video until user clicks */}
             {!videoActivated ? (
                 <div className="video-thumbnail-wrapper" onClick={activateVideo}>
-                    {thumbnailUrl ? (
-                        <img 
-                            src={thumbnailUrl} 
-                            alt="Video thumbnail" 
-                            className="video-thumbnail"
-                            loading="lazy"
-                        />
-                    ) : (
-                        <div className="video-placeholder" />
-                    )}
+                    {/* Use a paused video as thumbnail - shows first frame */}
+                    <video
+                        ref={thumbnailVideoRef}
+                        src={src}
+                        className="video-thumbnail"
+                        muted
+                        playsInline
+                        preload="metadata"
+                        poster={poster || thumbnail}
+                    />
                     <div className="video-play-overlay">
                         <div className="play-button-large">
-                            <Play className="w-12 h-12 md:w-16 md:h-16" fill="white" />
+                            <Play className="w-10 h-10 md:w-14 md:h-14" fill="white" stroke="white" />
                         </div>
                     </div>
                 </div>
@@ -215,7 +203,6 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
                         onClick={togglePlay}
                         playsInline
                         preload="auto"
-                        poster={thumbnailUrl}
                     />
 
                     {/* Loading Spinner */}
@@ -229,7 +216,7 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
                     {!isPlaying && !isBuffering && (
                         <div className="video-play-overlay" onClick={togglePlay}>
                             <div className="play-button-large">
-                                <Play className="w-12 h-12 md:w-16 md:h-16" fill="white" />
+                                <Play className="w-10 h-10 md:w-14 md:h-14" fill="white" stroke="white" />
                             </div>
                         </div>
                     )}
