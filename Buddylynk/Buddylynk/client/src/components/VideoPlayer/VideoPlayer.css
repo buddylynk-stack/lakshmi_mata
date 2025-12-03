@@ -30,7 +30,22 @@
     border-radius: 0.8rem;
 }
 
-/* Video placeholder while lazy loading */
+/* Video thumbnail wrapper - click to play */
+.video-thumbnail-wrapper {
+    position: relative;
+    width: 100%;
+    cursor: pointer;
+}
+
+.video-thumbnail {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    display: block;
+    border-radius: 0.8rem;
+}
+
+/* Video placeholder while loading thumbnail */
 .video-placeholder {
     width: 100%;
     aspect-ratio: 16/9;
