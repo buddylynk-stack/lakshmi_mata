@@ -34,18 +34,22 @@ jobs:
           script: |
             set -e
             echo "Starting deployment"
+            
+            # Setup Node.js 20 via nvm
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            echo "Upgrading Node.js to v20..."
+            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
             nvm install 20
             nvm use 20
             nvm alias default 20
-            node -v
+            echo "Node version: $(node -v)"
+            echo "NPM version: $(npm -v)"
+            
             cd ~/lakshmi_mata
             echo "Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
+            
             echo "Detecting project folder..."
             if [ -d "Buddylynk/Buddylynk" ]; then
               PROJECT_PATH="Buddylynk/Buddylynk"
@@ -56,44 +60,59 @@ jobs:
               exit 1
             fi
             echo "Found project at $PROJECT_PATH"
-            NGINX_PATH="/home/ubuntu/lakshmi_mata/$PROJECT_PATH/client/dist"
+            
             echo "Stopping PM2..."
             pm2 stop all || true
             pm2 delete all || true
+            
             echo "Installing backend dependencies..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            npm install --production --legacy-peer-deps
+            source "$NVM_DIR/nvm.sh" && nvm use 20
+            npm install --legacy-peer-deps
+            
             echo "Building frontend..."
             cd ~/lakshmi_mata/$PROJECT_PATH/client
+            source "$NVM_DIR/nvm.sh" && nvm use 20
+            echo "Using Node: $(node -v)"
+            rm -rf node_modules package-lock.json
             npm install --legacy-peer-deps
             npm install terser --save-dev
             npm run build
+            
             echo "Checking Redis..."
             if ! systemctl is-active --quiet redis-server; then
               sudo systemctl start redis-server
               sudo systemctl enable redis-server
             fi
+            
             echo "Setting up environment..."
             cd ~/lakshmi_mata/$PROJECT_PATH/server
-            echo "AWS_REGION=${AWS_REGION:-us-east-1}" > .env
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
-            echo "S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}" >> .env
-            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env
-            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env
-            echo "PORT=5000" >> .env
-            echo "JWT_SECRET=${JWT_SECRET}" >> .env
-            echo "REDIS_HOST=localhost" >> .env
-            echo "REDIS_PORT=6379" >> .env
-            echo "NSFW_API_URL=http://35.227.39.141:8002/nsfw" >> .env
-            echo "ENABLE_NSFW_CHECK=true" >> .env
-            echo "RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend" >> .env
+            cat > .env << EOF
+            AWS_REGION=${AWS_REGION:-us-east-1}
+            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            S3_BUCKET_NAME=${S3_BUCKET_NAME:-buddylynk-media-bucket-2024}
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            PORT=5000
+            JWT_SECRET=${JWT_SECRET}
+            REDIS_HOST=localhost
+            REDIS_PORT=6379
+            NSFW_API_URL=http://35.227.39.141:8002/nsfw
+            ENABLE_NSFW_CHECK=true
+            RECOMMENDATION_API_URL=http://35.227.39.141:8001/recommend
+            EOF
+            
             echo "Starting backend..."
+            source "$NVM_DIR/nvm.sh" && nvm use 20
             pm2 start index.js --name buddylynk-server
             pm2 save
+            
             chmod -R 755 ~/lakshmi_mata
+            
             echo "Restarting Nginx..."
             sudo systemctl restart nginx
+            
             echo "Deployment completed!"
             pm2 status
             echo "Zigzag algorithm and ML recommendations active!"
