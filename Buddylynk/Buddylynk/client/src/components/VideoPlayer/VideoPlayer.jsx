@@ -21,21 +21,43 @@ const getPlayManager = () => {
     return window.__VideoPlayManager;
 };
 
-const VideoPlayer = ({ src, className = "" }) => {
+const VideoPlayer = ({ src, className = "", poster = null }) => {
     const videoRef = useRef(null);
+    const containerRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    // PiP removed
     const [showControls, setShowControls] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
+    const [isVisible, setIsVisible] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
     const controlsTimeoutRef = useRef(null);
+
+    // Lazy load video when visible in viewport
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.disconnect(); // Only need to load once
+                }
+            },
+            { rootMargin: '100px', threshold: 0.1 }
+        );
+
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || !isVisible) return;
+        
         const manager = getPlayManager();
         manager.register(video);
 
@@ -44,6 +66,7 @@ const VideoPlayer = ({ src, className = "" }) => {
 
         const handleLoadedMetadata = () => {
             setDuration(video.duration);
+            setIsLoaded(true);
         };
 
         const handleTimeUpdate = () => {
@@ -56,10 +79,10 @@ const VideoPlayer = ({ src, className = "" }) => {
 
         const handleCanPlay = () => {
             setIsBuffering(false);
+            setIsLoaded(true);
         };
 
         const handleEnded = () => {
-            // loop is enabled; ensure it continues playing
             setIsPlaying(false);
         };
 
@@ -68,18 +91,15 @@ const VideoPlayer = ({ src, className = "" }) => {
             setIsPlaying(true);
         };
 
-        // PiP handlers removed
-
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
         video.addEventListener('timeupdate', handleTimeUpdate);
         video.addEventListener('waiting', handleWaiting);
         video.addEventListener('canplay', handleCanPlay);
         video.addEventListener('ended', handleEnded);
         video.addEventListener('play', handlePlay);
-        // PiP events removed
 
         // Pause when video goes out of view
-        const observer = new IntersectionObserver(([entry]) => {
+        const visibilityObserver = new IntersectionObserver(([entry]) => {
             const visible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
             if (!visible && !video.paused) {
                 video.pause();
@@ -87,7 +107,7 @@ const VideoPlayer = ({ src, className = "" }) => {
             }
         }, { threshold: [0, 0.5, 1] });
 
-        observer.observe(video);
+        visibilityObserver.observe(video);
 
         return () => {
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -96,11 +116,10 @@ const VideoPlayer = ({ src, className = "" }) => {
             video.removeEventListener('canplay', handleCanPlay);
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('play', handlePlay);
-            // PiP events removed
-            try { observer.disconnect(); } catch {}
+            try { visibilityObserver.disconnect(); } catch {}
             manager.unregister(video);
         };
-    }, []);
+    }, [isVisible]);
 
     const togglePlay = () => {
         const video = videoRef.current;
@@ -159,21 +178,33 @@ const VideoPlayer = ({ src, className = "" }) => {
 
     const progress = (currentTime / duration) * 100 || 0;
 
+    // Generate poster from video URL (first frame)
+    const videoPoster = poster || (src ? `${src}#t=0.1` : null);
+
     return (
         <div 
+            ref={containerRef}
             className={`video-player-container ${className}`}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setShowControls(false)}
         >
-            <video
-                ref={videoRef}
-                src={src}
-                className="video-element"
-                onClick={togglePlay}
-                playsInline
-                preload="auto"
-                loading="eager"
-            />
+            {/* Only render video when visible in viewport */}
+            {isVisible ? (
+                <video
+                    ref={videoRef}
+                    src={src}
+                    className="video-element"
+                    onClick={togglePlay}
+                    playsInline
+                    preload="metadata"
+                    poster={videoPoster}
+                />
+            ) : (
+                /* Placeholder while not visible */
+                <div className="video-placeholder">
+                    <Play className="w-12 h-12 text-white/50" />
+                </div>
+            )}
 
             {/* Loading Spinner */}
             {isBuffering && (

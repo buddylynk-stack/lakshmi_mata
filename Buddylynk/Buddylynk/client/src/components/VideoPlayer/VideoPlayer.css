@@ -30,6 +30,17 @@
     border-radius: 0.8rem;
 }
 
+/* Video placeholder while lazy loading */
+.video-placeholder {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.8rem;
+}
+
 /* Instagram-style contain mode - shows full video without cropping with max height 1080px */
 .instagram-media-frame .video-element {
     object-fit: contain !important;
