@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 // Cache HLS URLs to avoid repeated API calls
 const hlsCache = new Map();
 
-// CloudFront domain for HLS (set from env or hardcoded)
-const CLOUDFRONT_HLS_DOMAIN = 'd1oqjal7gnkqeg.cloudfront.net';
+// Unified CloudFront domain (serves both images and HLS)
+const CLOUDFRONT_DOMAIN = 'd1urwintyo9xhn.cloudfront.net';
 
 /**
  * Hook to get HLS URL for a video
@@ -44,8 +44,8 @@ export function useHLSUrl(originalUrl) {
         const checkHLS = async () => {
             setLoading(true);
             try {
-                // Generate expected HLS URL
-                const expectedHlsUrl = getExpectedHLSUrl(originalUrl, CLOUDFRONT_HLS_DOMAIN);
+                // Generate expected HLS URL using unified CloudFront
+                const expectedHlsUrl = getExpectedHLSUrl(originalUrl, CLOUDFRONT_DOMAIN);
                 
                 if (expectedHlsUrl) {
                     // Quick HEAD request to check if HLS exists

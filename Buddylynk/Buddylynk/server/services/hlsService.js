@@ -10,7 +10,8 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 const INPUT_BUCKET = process.env.S3_BUCKET_NAME;
 const OUTPUT_BUCKET = process.env.HLS_OUTPUT_BUCKET || `${INPUT_BUCKET}-hls`;
 const MEDIACONVERT_ROLE = process.env.MEDIACONVERT_ROLE_ARN;
-const CLOUDFRONT_HLS_DOMAIN = process.env.CLOUDFRONT_HLS_DOMAIN;
+// Use unified CloudFront domain (serves both images and HLS)
+const CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN;
 
 let mediaConvertEndpoint = process.env.MEDIACONVERT_ENDPOINT;
 let mediaConvertClient = null;
@@ -159,9 +160,9 @@ async function startHLSTranscode(videoUrl) {
     const result = await client.send(new CreateJobCommand(jobParams));
     const jobId = result.Job.Id;
     
-    // Build HLS URL (will be available after transcoding completes)
-    const hlsUrl = CLOUDFRONT_HLS_DOMAIN 
-        ? `https://${CLOUDFRONT_HLS_DOMAIN}/${outputPath}${baseName}.m3u8`
+    // Build HLS URL using unified CloudFront (will be available after transcoding completes)
+    const hlsUrl = CLOUDFRONT_DOMAIN 
+        ? `https://${CLOUDFRONT_DOMAIN}/hls/${baseName}/${baseName}.m3u8`
         : `https://${OUTPUT_BUCKET}.s3.${REGION}.amazonaws.com/${outputPath}${baseName}.m3u8`;
 
     console.log(`✅ HLS job started: ${jobId}`);
@@ -199,8 +200,8 @@ async function checkHLSExists(videoUrl) {
             Key: hlsKey,
         }));
 
-        const hlsUrl = CLOUDFRONT_HLS_DOMAIN 
-            ? `https://${CLOUDFRONT_HLS_DOMAIN}/${hlsKey}`
+        const hlsUrl = CLOUDFRONT_DOMAIN 
+            ? `https://${CLOUDFRONT_DOMAIN}/${hlsKey}`
             : `https://${OUTPUT_BUCKET}.s3.${REGION}.amazonaws.com/${hlsKey}`;
 
         return { exists: true, hlsUrl };
@@ -226,5 +227,5 @@ module.exports = {
     checkHLSExists,
     getVideoUrl,
     OUTPUT_BUCKET,
-    CLOUDFRONT_HLS_DOMAIN,
+    CLOUDFRONT_DOMAIN,
 };

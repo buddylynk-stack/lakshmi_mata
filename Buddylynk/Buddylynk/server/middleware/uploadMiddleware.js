@@ -78,21 +78,18 @@ const uploadToS3 = async (file) => {
 
     try {
         await s3Client.send(command);
-        const url = `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
-        console.log(`✅ S3 Upload Success: ${url}`);
         
-        // Auto-trigger HLS transcoding for videos
-        if (file.mimetype.startsWith('video/') && hlsService && process.env.MEDIACONVERT_ROLE_ARN) {
-            setImmediate(async () => {
-                try {
-                    const hlsResult = await hlsService.startHLSTranscode(url);
-                    if (hlsResult) {
-                        console.log(`🎬 HLS job queued: ${hlsResult.jobId}`);
-                    }
-                } catch (hlsErr) {
-                    console.error(`⚠️ HLS transcode failed:`, hlsErr.message);
-                }
-            });
+        // Use CloudFront URL if available, otherwise S3 URL
+        const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN;
+        const url = cloudfrontDomain 
+            ? `https://${cloudfrontDomain}/${key}`
+            : `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
+        
+        console.log(`✅ Upload Success: ${url}`);
+        
+        // Auto-trigger HLS transcoding for videos (via Lambda S3 trigger)
+        if (file.mimetype.startsWith('video/')) {
+            console.log(`🎬 HLS transcoding will be triggered by Lambda`);
         }
         
         return url;
