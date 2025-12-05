@@ -51,8 +51,7 @@ const uploadToS3 = async (file) => {
             processedBuffer = file.buffer;
         }
     } else if (file.mimetype.startsWith('video/')) {
-        // Videos upload as-is (compression would take too long on server)
-        // Consider using client-side compression or AWS MediaConvert for production
+        // Videos upload as-is
         console.log(`   Video upload: ${file.mimetype}`);
     }
 

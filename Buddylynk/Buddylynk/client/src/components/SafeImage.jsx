@@ -1,43 +1,37 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 
-// Retry configuration - reduced to prevent aggressive retrying
-const RETRY_INTERVAL = 5000; // 5 seconds
-const MAX_RETRIES = 3; // Only retry 3 times
+// Retry configuration - INSTANT, no delays
+const RETRY_INTERVAL = 100; // Reduced from 5000ms
+const MAX_RETRIES = 1; // Reduced from 2
 
-export const SafeAvatar = ({ src, alt, className, fallbackText, username, onClick }) => {
+export const SafeAvatar = memo(({ src, alt, className, fallbackText, username, onClick }) => {
     const [imgSrc, setImgSrc] = useState(src);
     const [retryCount, setRetryCount] = useState(0);
     const [hasLogged, setHasLogged] = useState(false);
-    const maxRetries = 1; // Reduced from 2 to 1
+    const maxRetries = 1;
 
     const name = fallbackText || username || alt || 'User';
-    const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+    const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=64`;
 
     useEffect(() => {
-        // Reset when src changes
         setImgSrc(src);
         setRetryCount(0);
         setHasLogged(false);
     }, [src]);
 
-    const handleError = (e) => {
+    const handleError = () => {
         if (retryCount < maxRetries && src) {
-            // Retry once with cache-busting
             setRetryCount(prev => prev + 1);
             setImgSrc(`${src}?retry=${Date.now()}`);
         } else {
-            // Use fallback after retry exhausted
             if (src && !hasLogged) {
-                // Only log once per image to avoid console spam
-                console.warn(`⚠️ Avatar failed to load: ${src.substring(0, 80)}...`);
-                console.warn(`   Run: node scripts/fix-bucket-permissions.js to fix S3 permissions`);
+                console.warn(`⚠️ Avatar failed: ${src.substring(0, 50)}...`);
                 setHasLogged(true);
             }
             setImgSrc(fallbackSrc);
         }
     };
 
-    // Use fallback immediately if no src
     const displaySrc = imgSrc || fallbackSrc;
 
     return (
@@ -47,32 +41,81 @@ export const SafeAvatar = ({ src, alt, className, fallbackText, username, onClic
             className={className}
             onClick={onClick}
             onError={handleError}
-            loading="lazy"
             decoding="async"
         />
     );
-};
+});
 
-export const SafeImage = ({ src, alt, className, fallback = null, onClick, loading = "lazy" }) => {
+SafeAvatar.displayName = 'SafeAvatar';
+
+export const SafeImage = memo(({ src, alt, className, fallback = null, onClick, style }) => {
     const [error, setError] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
 
-    if (error && !fallback) {
-        return null;
+    // Reset error state when src changes
+    useEffect(() => {
+        setError(false);
+        setRetryCount(0);
+    }, [src]);
+
+    const handleError = () => {
+        // Retry once with cache-busting
+        if (retryCount < 1 && src) {
+            setRetryCount(prev => prev + 1);
+            return;
+        }
+        console.warn(`⚠️ Image failed to load: ${src?.substring(0, 60)}...`);
+        setError(true);
+    };
+
+    // Show placeholder when image fails to load
+    if (error) {
+        if (fallback) {
+            return (
+                <img
+                    src={fallback}
+                    alt={alt}
+                    className={className}
+                    onClick={onClick}
+                    decoding="async"
+                    style={style}
+                />
+            );
+        }
+        // Show error placeholder instead of hiding
+        return (
+            <div 
+                className={`flex items-center justify-center bg-gray-800/50 rounded-lg ${className}`}
+                style={{ ...style, minHeight: '100px' }}
+                onClick={onClick}
+            >
+                <div className="text-center text-gray-400 p-4">
+                    <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-xs">Image unavailable</p>
+                </div>
+            </div>
+        );
     }
+
+    // Add retry parameter to URL if retrying
+    const imgSrc = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
 
     return (
         <img
-            src={error && fallback ? fallback : src}
+            src={imgSrc}
             alt={alt}
             className={className}
             onClick={onClick}
-            onError={() => setError(true)}
-            loading={loading}
+            onError={handleError}
             decoding="async"
-            style={error && !fallback ? { display: 'none' } : {}}
+            style={style}
         />
     );
-};
+});
+
+SafeImage.displayName = 'SafeImage';
 
 export const SafeBanner = ({ src, alt, className }) => {
     const [error, setError] = useState(false);
@@ -93,22 +136,20 @@ export const SafeBanner = ({ src, alt, className }) => {
     );
 };
 
-// Advanced image component with retry and auto-delete
-export const RetryImage = ({
+// Image component with retry and auto-delete - NO lazy loading
+export const RetryImage = memo(({
     src,
     alt,
     className,
     postId = null,
     onDelete = null,
-    type = "post", // "post", "group", "banner"
-    loading = "lazy", // Add lazy loading support
-    onClick
+    onClick,
+    style
 }) => {
     const [imageSrc, setImageSrc] = useState(src);
     const [retryCount, setRetryCount] = useState(0);
     const [isDeleted, setIsDeleted] = useState(false);
     const retryTimerRef = useRef(null);
-    const startTimeRef = useRef(Date.now());
 
     useEffect(() => {
         return () => {
@@ -119,52 +160,29 @@ export const RetryImage = ({
     }, []);
 
     const handleImageError = async () => {
-        // If we've exceeded max retries, check if it's a 403/404 (deleted from S3)
         if (retryCount >= MAX_RETRIES) {
-            console.log(`⚠️ Image failed after ${retryCount} retries: ${src}`);
-            
-            // Check if the image returns 403 or 404 (deleted from S3)
             try {
                 const response = await fetch(src, { method: 'HEAD' });
                 if (response.status === 403 || response.status === 404) {
-                    console.log(`🗑️ Image deleted from S3 (${response.status}). Auto-deleting post...`);
                     setIsDeleted(true);
-                    
-                    // If onDelete callback is provided and we have a postId, call it to delete the post
                     if (onDelete && postId) {
-                        console.log(`✅ Triggering post deletion for postId: ${postId}`);
-                        // Wait a moment before deleting so user sees the message
-                        setTimeout(() => {
-                            onDelete(postId);
-                        }, 2000);
+                        setTimeout(() => onDelete(postId), 2000);
                     }
                     return;
                 }
-            } catch (error) {
-                console.error('Error checking image status:', error);
-                // If fetch fails, assume it's deleted
-                console.log(`🗑️ Image unreachable. Auto-deleting post...`);
+            } catch {
                 setIsDeleted(true);
-                
                 if (onDelete && postId) {
-                    setTimeout(() => {
-                        onDelete(postId);
-                    }, 2000);
+                    setTimeout(() => onDelete(postId), 2000);
                 }
                 return;
             }
-            
-            // If not deleted, just hide the image
             setIsDeleted(true);
             return;
         }
 
-        // Retry loading the image
         setRetryCount(prev => prev + 1);
-        console.log(`🔄 Retry attempt ${retryCount + 1}/${MAX_RETRIES} for image: ${src}`);
-
         retryTimerRef.current = setTimeout(() => {
-            // Force reload by adding timestamp
             setImageSrc(`${src}?retry=${Date.now()}`);
         }, RETRY_INTERVAL);
     };
@@ -174,7 +192,6 @@ export const RetryImage = ({
             <div className="w-full h-48 flex items-center justify-center bg-gray-800 rounded-xl">
                 <div className="text-center text-gray-400">
                     <p className="text-sm">Media no longer available</p>
-                    <p className="text-xs mt-1">This file was deleted from storage</p>
                 </div>
             </div>
         );
@@ -185,9 +202,12 @@ export const RetryImage = ({
             src={imageSrc}
             alt={alt}
             className={className}
-            loading={loading}
+            decoding="async"
             onClick={onClick}
             onError={handleImageError}
+            style={style}
         />
     );
-};
+});
+
+RetryImage.displayName = 'RetryImage';

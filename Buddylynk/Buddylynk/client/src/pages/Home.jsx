@@ -128,6 +128,21 @@ const Home = () => {
     // Real-time post updates via custom hook (prevents memory leaks)
     useRealTimePosts(setPosts);
 
+    // Polling fallback when socket is not connected (for production reliability)
+    useEffect(() => {
+        // Only poll if socket is not connected and user is logged in
+        if (isConnected || !user) return;
+
+        console.log("⚠️ Socket not connected, using polling fallback");
+        
+        const pollInterval = setInterval(() => {
+            // Silently fetch new posts without showing loading
+            fetchFreshPosts(false, false);
+        }, 30000); // Poll every 30 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [isConnected, user]);
+
     // Listen for upload progress updates
     useEffect(() => {
         if (!socket) return;
@@ -326,8 +341,17 @@ const Home = () => {
             setUploadStage("saving");
 
             // Create post with media URLs (small JSON payload)
-            // Note: Post will be added via real-time Redis broadcast (useRealTimePosts)
-            await axios.post("/api/posts/with-urls", postData);
+            const response = await axios.post("/api/posts/with-urls", postData);
+            const createdPost = response.data;
+
+            // Add post to feed immediately (don't wait for socket)
+            // This ensures the post shows up even if realtime fails
+            setPosts(prevPosts => {
+                // Prevent duplicates (in case socket also delivers it)
+                const exists = prevPosts.some(p => p.postId === createdPost.postId);
+                if (exists) return prevPosts;
+                return [createdPost, ...prevPosts];
+            });
 
             setNewPost("");
             setMedia([]);

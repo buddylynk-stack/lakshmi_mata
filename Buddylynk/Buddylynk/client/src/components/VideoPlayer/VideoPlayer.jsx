@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Play, Maximize, Minimize } from 'lucide-react';
 import './VideoPlayer.css';
 
@@ -21,13 +21,15 @@ const getPlayManager = () => {
     return window.__VideoPlayManager;
 };
 
-const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) => {
+// Detect mobile for performance optimizations
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null }) => {
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const progressBarRef = useRef(null);
-    const thumbnailVideoRef = useRef(null);
     
-    // Video doesn't load until user clicks
+    // Video doesn't load until user clicks - NO thumbnail video loading
     const [videoActivated, setVideoActivated] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -35,32 +37,7 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
-    const [showThumbnailVideo, setShowThumbnailVideo] = useState(true);
     const controlsTimeoutRef = useRef(null);
-
-    // Handle thumbnail video - show first frame
-    useEffect(() => {
-        const thumbVideo = thumbnailVideoRef.current;
-        if (!thumbVideo || !src || videoActivated) return;
-
-        const handleLoaded = () => {
-            // Seek to 0.5 seconds to get a good frame
-            thumbVideo.currentTime = 0.5;
-        };
-
-        const handleSeeked = () => {
-            // Thumbnail is ready
-            setShowThumbnailVideo(true);
-        };
-
-        thumbVideo.addEventListener('loadeddata', handleLoaded);
-        thumbVideo.addEventListener('seeked', handleSeeked);
-
-        return () => {
-            thumbVideo.removeEventListener('loadeddata', handleLoaded);
-            thumbVideo.removeEventListener('seeked', handleSeeked);
-        };
-    }, [src, videoActivated]);
 
     // Handle video events after activation
     useEffect(() => {
@@ -72,7 +49,14 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
         video.loop = true;
 
         const handleLoadedMetadata = () => setDuration(video.duration);
-        const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+        // Throttle time updates on mobile for better performance
+        let lastUpdate = 0;
+        const handleTimeUpdate = () => {
+            const now = Date.now();
+            if (isMobile && now - lastUpdate < 250) return; // Update every 250ms on mobile
+            lastUpdate = now;
+            setCurrentTime(video.currentTime);
+        };
         const handleWaiting = () => setIsBuffering(true);
         const handleCanPlay = () => {
             setIsBuffering(false);
@@ -99,7 +83,7 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
             if (!entry.isIntersecting && !video.paused) {
                 video.pause();
             }
-        }, { threshold: 0.5 });
+        }, { threshold: 0.3 });
 
         visibilityObserver.observe(video);
 
@@ -175,17 +159,15 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setShowControls(false)}
         >
-            {/* Show thumbnail video until user clicks */}
             {!videoActivated ? (
+                /* Show video thumbnail - loads first frame INSTANTLY */
                 <div className="video-thumbnail-wrapper" onClick={activateVideo}>
-                    {/* Use a paused video as thumbnail - shows first frame */}
                     <video
-                        ref={thumbnailVideoRef}
                         src={src}
                         className="video-thumbnail"
                         muted
                         playsInline
-                        preload="metadata"
+                        preload="auto"
                         poster={poster || thumbnail}
                     />
                     <div className="video-play-overlay">
@@ -255,6 +237,8 @@ const VideoPlayer = ({ src, className = "", poster = null, thumbnail = null }) =
             )}
         </div>
     );
-};
+});
+
+VideoPlayer.displayName = 'VideoPlayer';
 
 export default VideoPlayer;

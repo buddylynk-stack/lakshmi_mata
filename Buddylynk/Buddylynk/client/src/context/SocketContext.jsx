@@ -105,10 +105,16 @@ export const SocketProvider = ({ children }) => {
             console.error('❌ Socket URL:', SOCKET_URL);
             console.error('❌ Error details:', error);
             setIsConnected(false);
+            
+            // Try to reconnect with polling if websocket fails
+            if (newSocket.io.opts.transports.includes('websocket')) {
+                console.log('🔄 Retrying with polling transport...');
+                newSocket.io.opts.transports = ['polling'];
+            }
         });
 
         // Heartbeat response
-        newSocket.on('heartbeat', (data) => {
+        newSocket.on('heartbeat', () => {
             // Server sent heartbeat, respond with pong
             newSocket.emit('pong');
         });

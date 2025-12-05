@@ -45,6 +45,8 @@ const GroupDetail = () => {
     const [showMediaOptionsMenu, setShowMediaOptionsMenu] = useState(false);
     const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const toast = useToast();
@@ -60,6 +62,11 @@ const GroupDetail = () => {
         const handleGroupUpdated = (data) => {
             if (data.groupId === id) {
                 console.log("🔄 Group updated in real-time:", id, "Action:", data.action);
+                // Debug: Log media in new posts
+                if (data.action === 'newPost' && data.group?.posts?.length > 0) {
+                    const latestPost = data.group.posts[data.group.posts.length - 1];
+                    console.log("📷 Latest post media:", latestPost?.media);
+                }
                 setGroup(data.group);
             }
         };
@@ -166,42 +173,44 @@ const GroupDetail = () => {
                     { content: messageContent },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
-                // Replace temp post with real one from response (WebSocket will also update)
-                // No fetchGroup() needed - WebSocket handles real-time sync
+                // Update group with response data immediately
+                if (res.data) {
+                    setGroup(res.data);
+                }
                 return;
             }
             
-            // Media post
-            const MAX_FILES_PER_POST = 20;
-            const fileChunks = [];
-            for (let i = 0; i < selectedMedia.length; i += MAX_FILES_PER_POST) {
-                fileChunks.push(selectedMedia.slice(i, i + MAX_FILES_PER_POST));
+            // Media post with FAST direct S3 upload
+            setIsUploading(true);
+            setUploadProgress(0);
+            
+            // Upload media directly to S3 (much faster than server upload)
+            const uploadedMedia = await uploadMultipleFiles(selectedMedia, (progress) => {
+                setUploadProgress(Math.round(progress * 0.9)); // 0-90% for upload
+            });
+            
+            setUploadProgress(95);
+            
+            // Create post with uploaded media URLs
+            const res = await axios.post(`/api/groups/${id}/posts/with-urls`, {
+                content: messageContent,
+                media: uploadedMedia
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            // Update group immediately with response (instant display)
+            if (res.data) {
+                setGroup(res.data);
             }
             
-            for (let i = 0; i < fileChunks.length; i++) {
-                const chunk = fileChunks[i];
-                const formData = new FormData();
-                formData.append("content", i === 0 ? messageContent : "");
-                chunk.forEach((file) => {
-                    formData.append("media", file);
-                });
-
-                await axios.post(`/api/groups/${id}/posts`, formData, {
-                    headers: { 
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "multipart/form-data"
-                    }
-                });
-            }
-            
-            if (fileChunks.length > 1) {
-                toast.success(`${selectedMedia.length} files sent in ${fileChunks.length} posts!`);
-            }
+            setUploadProgress(100);
+            setIsUploading(false);
+            setUploadProgress(0);
             
             setNewPost("");
             setSelectedMedia([]);
             setMediaPreviews([]);
-            // No fetchGroup() - WebSocket handles real-time sync
         } catch (error) {
             console.error("Error creating post:", error);
             toast.error(error.response?.data?.message || "Failed to send message");
@@ -823,6 +832,22 @@ const GroupDetail = () => {
                         </div>
                     )}
 
+                    {/* Upload Progress Bar */}
+                    {isUploading && (
+                        <div className="mb-2 px-2">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs dark:text-gray-400 text-gray-600">Uploading...</span>
+                                <span className="text-xs font-medium dark:text-white text-gray-900">{uploadProgress}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-300 ease-out"
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handlePostSubmit} className="flex items-center gap-2">
                         {/* Attach Menu */}
                         <div className="relative">
@@ -1223,6 +1248,22 @@ const GroupDetail = () => {
                             </div>
                         </div>
                         
+                        {/* Upload Progress in Modal */}
+                        {isUploading && (
+                            <div className="px-4 py-2 bg-black/60">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs text-white/70">Uploading...</span>
+                                    <span className="text-xs font-medium text-white">{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-[#3390ec] to-[#00a884] transition-all duration-300 ease-out"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        
                         {/* Bottom Actions */}
                         <div className="px-4 py-4 bg-black/80 flex gap-3">
                             <button
@@ -1238,12 +1279,20 @@ const GroupDetail = () => {
                                         selectedMedia.forEach((file) => {
                                             formData.append("media", file);
                                         });
+                                        setIsUploading(true);
+                                        setUploadProgress(0);
                                         await axios.post(`/api/groups/${id}/posts`, formData, {
                                             headers: { 
                                                 Authorization: `Bearer ${token}`,
                                                 "Content-Type": "multipart/form-data"
+                                            },
+                                            onUploadProgress: (progressEvent) => {
+                                                const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                                                setUploadProgress(progress);
                                             }
                                         });
+                                        setIsUploading(false);
+                                        setUploadProgress(0);
                                         setNewPost("");
                                         setSelectedMedia([]);
                                         setMediaPreviews([]);
@@ -1271,6 +1320,8 @@ const GroupDetail = () => {
                                     setShowMediaPreviewModal(false);
                                     if (selectedMedia.length === 0) return;
                                     setIsSending(true);
+                                    setIsUploading(true);
+                                    setUploadProgress(0);
                                     
                                     for (let i = 0; i < selectedMedia.length; i++) {
                                         const file = selectedMedia[i];
@@ -1284,6 +1335,11 @@ const GroupDetail = () => {
                                                 headers: { 
                                                     Authorization: `Bearer ${token}`,
                                                     "Content-Type": "multipart/form-data"
+                                                },
+                                                onUploadProgress: (progressEvent) => {
+                                                    const fileProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                                                    const overallProgress = Math.round(((i * 100) + fileProgress) / selectedMedia.length);
+                                                    setUploadProgress(overallProgress);
                                                 }
                                             });
                                         } catch (error) {
@@ -1291,6 +1347,8 @@ const GroupDetail = () => {
                                         }
                                     }
                                     
+                                    setIsUploading(false);
+                                    setUploadProgress(0);
                                     toast.success(`${selectedMedia.length} files sent individually!`);
                                     setSelectedMedia([]);
                                     setMediaPreviews([]);

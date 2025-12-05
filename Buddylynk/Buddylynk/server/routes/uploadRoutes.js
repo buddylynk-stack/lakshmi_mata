@@ -94,4 +94,57 @@ router.post('/server', protect, async (req, res) => {
     }
 });
 
+// Diagnostic endpoint to check S3 configuration
+router.get('/check-s3', async (req, res) => {
+    const { HeadBucketCommand, GetBucketPolicyCommand } = require('@aws-sdk/client-s3');
+    
+    const results = {
+        bucket: BUCKET_NAME,
+        region: process.env.AWS_REGION || 'us-east-1',
+        bucketExists: false,
+        publicAccess: false,
+        testUrl: null,
+        errors: []
+    };
+    
+    try {
+        // Check if bucket exists
+        await presignedUrlClient.send(new HeadBucketCommand({ Bucket: BUCKET_NAME }));
+        results.bucketExists = true;
+        
+        // Check bucket policy
+        try {
+            const policy = await presignedUrlClient.send(new GetBucketPolicyCommand({ Bucket: BUCKET_NAME }));
+            const policyJson = JSON.parse(policy.Policy);
+            const hasPublicRead = policyJson.Statement?.some(s => 
+                s.Effect === 'Allow' && 
+                s.Principal === '*' && 
+                s.Action === 's3:GetObject'
+            );
+            results.publicAccess = hasPublicRead;
+        } catch (policyError) {
+            if (policyError.name === 'NoSuchBucketPolicy') {
+                results.errors.push('No bucket policy set - run: node setup-s3-public-access.js');
+            } else {
+                results.errors.push(`Policy check failed: ${policyError.message}`);
+            }
+        }
+        
+        results.testUrl = `https://${BUCKET_NAME}.s3.amazonaws.com/`;
+        
+        res.json({
+            status: results.bucketExists && results.publicAccess ? 'OK' : 'NEEDS_SETUP',
+            ...results,
+            fix: results.publicAccess ? null : 'Run: cd server && node setup-s3-public-access.js'
+        });
+        
+    } catch (error) {
+        results.errors.push(error.message);
+        res.status(500).json({
+            status: 'ERROR',
+            ...results
+        });
+    }
+});
+
 module.exports = router;

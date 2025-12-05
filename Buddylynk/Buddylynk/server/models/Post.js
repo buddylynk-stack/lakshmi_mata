@@ -488,4 +488,26 @@ const editPost = async (postId, content, media = null) => {
     return post;
 };
 
-module.exports = { createPost, getAllPosts, getPostById, votePoll, deletePost, likePost, addComment, editComment, deleteComment, pinComment, sharePost, savePost, incrementViews, editPost };
+// Update post NSFW status (for background NSFW check)
+const updatePostNsfw = async (postId, media, isNsfw) => {
+    const getCmd = new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { postId },
+    });
+    const result = await docClient.send(getCmd);
+    const post = result.Item;
+
+    if (!post) return null;
+
+    post.media = media;
+    post.isNsfw = isNsfw;
+
+    await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: post,
+    }));
+
+    return post;
+};
+
+module.exports = { createPost, getAllPosts, getPostById, votePoll, deletePost, likePost, addComment, editComment, deleteComment, pinComment, sharePost, savePost, incrementViews, editPost, updatePostNsfw };

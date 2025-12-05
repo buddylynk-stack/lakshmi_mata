@@ -1,201 +1,170 @@
-// Soft, buttery smooth animations optimized for mobile
+// INSTANT animations - no slow loading, everything appears immediately
 // Uses GPU-accelerated properties: opacity, transform
 
 // Check if mobile for adaptive animations
 const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
-// Soft easing curves - gentler than standard
+// Fast easing curves
 export const linearEasing = "linear";
-export const easeOut = [0.25, 0.1, 0.25, 1]; // Softer ease-out
-export const easeInOut = [0.42, 0, 0.58, 1]; // Gentle ease-in-out
-export const easeOutSoft = [0.16, 1, 0.3, 1]; // Very soft, natural feel
-export const easeOutGentle = [0.33, 1, 0.68, 1]; // Extra gentle
-export const spring = { type: "spring", stiffness: 200, damping: 30, mass: 1 };
-export const springGentle = { type: "spring", stiffness: 150, damping: 25, mass: 0.8 };
-export const springSoft = { type: "spring", stiffness: 100, damping: 20, mass: 0.5 };
+export const easeOut = [0.25, 0.1, 0.25, 1];
+export const easeInOut = [0.42, 0, 0.58, 1];
+export const easeOutSoft = [0.16, 1, 0.3, 1];
+export const easeOutGentle = [0.33, 1, 0.68, 1];
+export const spring = { type: "spring", stiffness: 400, damping: 40, mass: 0.5 };
+export const springGentle = { type: "spring", stiffness: 300, damping: 35, mass: 0.5 };
+export const springSoft = { type: "spring", stiffness: 250, damping: 30, mass: 0.5 };
 
-// Container variants - soft stagger
+// Container variants - INSTANT, no stagger delay
 export const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
         transition: {
-            duration: isMobile ? 0.25 : 0.3,
-            staggerChildren: isMobile ? 0.04 : 0.06,
+            duration: 0.1,
+            staggerChildren: 0.01,
             when: "beforeChildren",
-            ease: easeOutSoft
+            ease: linearEasing
         }
     }
 };
 
-// Fast container - minimal stagger
+// Fast container - INSTANT
 export const fastContainerVariants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
         transition: { 
-            duration: 0.2,
-            staggerChildren: 0.03,
-            ease: easeOutSoft
+            duration: 0.05,
+            staggerChildren: 0,
+            ease: linearEasing
         }
     }
 };
 
-// Item variants - soft fade with subtle movement
+// Item variants - INSTANT appear
 export const itemVariants = {
     hidden: { 
         opacity: 0, 
-        y: isMobile ? 6 : 10
+        y: 0
     },
     visible: { 
         opacity: 1,
         y: 0,
         transition: { 
-            duration: isMobile ? 0.25 : 0.3, 
-            ease: easeOutSoft 
+            duration: 0.1, 
+            ease: linearEasing 
         }
     }
 };
 
-// Fade variants - simple and soft
+// Fade variants - INSTANT
 export const fadeVariants = {
     hidden: { opacity: 0 },
     visible: { 
         opacity: 1,
-        transition: { duration: isMobile ? 0.2 : 0.25, ease: easeOutSoft }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        transition: { duration: 0.15, ease: easeOut }
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Scale variants - soft scale
+// Scale variants - INSTANT
 export const scaleVariants = {
     hidden: { 
         opacity: 0, 
-        scale: 0.97
+        scale: 1
     },
     visible: { 
         opacity: 1, 
         scale: 1,
         transition: { 
-            duration: isMobile ? 0.2 : 0.25, 
-            ease: easeOutSoft 
+            duration: 0.1, 
+            ease: linearEasing 
         }
     },
     exit: {
         opacity: 0,
-        scale: 0.98,
-        transition: { duration: 0.15, ease: easeOut }
+        scale: 1,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Slide right - soft horizontal slide
+// Slide right - INSTANT
 export const slideRightVariants = {
-    hidden: { 
-        opacity: 0, 
-        x: isMobile ? 10 : 15 
-    },
+    hidden: { opacity: 0, x: 0 },
     visible: { 
         opacity: 1, 
         x: 0,
-        transition: { 
-            duration: isMobile ? 0.25 : 0.3, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        x: -8,
-        transition: { duration: 0.15, ease: easeOut }
+        x: 0,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Slide up - soft vertical slide
+// Slide up - INSTANT
 export const slideUpVariants = {
-    hidden: { 
-        opacity: 0, 
-        y: isMobile ? 10 : 15 
-    },
+    hidden: { opacity: 0, y: 0 },
     visible: { 
         opacity: 1, 
         y: 0,
-        transition: { 
-            duration: isMobile ? 0.25 : 0.3, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        y: 8,
-        transition: { duration: 0.15, ease: easeOut }
+        y: 0,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Slide down - for dropdowns/menus
+// Slide down - INSTANT
 export const slideDownVariants = {
-    hidden: { 
-        opacity: 0, 
-        y: -8
-    },
+    hidden: { opacity: 0, y: 0 },
     visible: { 
         opacity: 1, 
         y: 0,
-        transition: { 
-            duration: 0.2, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        y: -5,
-        transition: { duration: 0.15, ease: easeOut }
+        y: 0,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Page variants - soft page transitions
+// Page variants - INSTANT
 export const pageVariants = {
-    hidden: { 
-        opacity: 0,
-        y: 8
-    },
+    hidden: { opacity: 0, y: 0 },
     visible: { 
         opacity: 1,
         y: 0,
-        transition: { 
-            duration: 0.25, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: { 
         opacity: 0, 
-        y: -5,
-        transition: { duration: 0.15, ease: easeOut } 
+        y: 0,
+        transition: { duration: 0.1, ease: linearEasing } 
     }
 };
 
-// Modal variants - soft modal animations
+// Modal variants - INSTANT
 export const modalVariants = {
-    hidden: { 
-        opacity: 0, 
-        scale: 0.95,
-        y: 10
-    },
+    hidden: { opacity: 0, scale: 1, y: 0 },
     visible: { 
         opacity: 1, 
         scale: 1,
         y: 0,
-        transition: { 
-            duration: 0.25, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        scale: 0.97,
-        y: 5,
-        transition: { duration: 0.2, ease: easeOut }
+        scale: 1,
+        y: 0,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
@@ -222,28 +191,28 @@ export const cardHover = {
     transition: { duration: 0.2, ease: easeOutSoft }
 };
 
-// Fast transition - for quick interactions
+// Fast transition - INSTANT
 export const fastTransition = { 
-    duration: isMobile ? 0.15 : 0.2, 
-    ease: easeOutSoft 
+    duration: 0.05, 
+    ease: linearEasing 
 };
 
-// Default transition
+// Default transition - INSTANT
 export const defaultTransition = { 
-    duration: isMobile ? 0.2 : 0.25, 
-    ease: easeOutSoft 
+    duration: 0.1, 
+    ease: linearEasing 
 };
 
-// Smooth transition - for important animations
+// Smooth transition - INSTANT
 export const smoothTransition = {
-    duration: 0.3,
-    ease: easeOutSoft
+    duration: 0.1,
+    ease: linearEasing
 };
 
-// Soft transition - extra gentle
+// Soft transition - INSTANT
 export const softTransition = {
-    duration: 0.35,
-    ease: easeOutGentle
+    duration: 0.1,
+    ease: linearEasing
 };
 
 // Spring transitions for natural feel
@@ -266,55 +235,41 @@ export const listStagger = {
     }
 };
 
-// Message bubble animation - for chat (softer)
+// Message bubble animation - INSTANT
 export const messageBubbleVariants = {
-    hidden: { 
-        opacity: 0, 
-        scale: 0.95,
-        y: 8
-    },
+    hidden: { opacity: 0, scale: 1, y: 0 },
     visible: { 
         opacity: 1, 
         scale: 1,
         y: 0,
-        transition: { 
-            duration: 0.2, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.05, ease: linearEasing }
     }
 };
 
-// Notification pop - soft attention
+// Notification pop - INSTANT
 export const notificationVariants = {
-    hidden: { 
-        opacity: 0, 
-        scale: 0.9,
-        y: -15
-    },
+    hidden: { opacity: 0, scale: 1, y: 0 },
     visible: { 
         opacity: 1, 
         scale: 1,
         y: 0,
-        transition: { 
-            duration: 0.3, 
-            ease: easeOutSoft 
-        }
+        transition: { duration: 0.1, ease: linearEasing }
     },
     exit: {
         opacity: 0,
-        scale: 0.95,
-        y: -8,
-        transition: { duration: 0.2, ease: easeOut }
+        scale: 1,
+        y: 0,
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
-// Mobile-specific soft animations
+// Mobile-specific - INSTANT
 export const mobileSlideUp = {
-    hidden: { opacity: 0, y: 15 },
+    hidden: { opacity: 0, y: 0 },
     visible: { 
         opacity: 1, 
         y: 0,
-        transition: { duration: 0.3, ease: easeOutGentle }
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
@@ -322,15 +277,15 @@ export const mobileFadeIn = {
     hidden: { opacity: 0 },
     visible: { 
         opacity: 1,
-        transition: { duration: 0.25, ease: easeOutSoft }
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };
 
 export const mobileScaleIn = {
-    hidden: { opacity: 0, scale: 0.96 },
+    hidden: { opacity: 0, scale: 1 },
     visible: { 
         opacity: 1, 
         scale: 1,
-        transition: { duration: 0.25, ease: easeOutSoft }
+        transition: { duration: 0.1, ease: linearEasing }
     }
 };

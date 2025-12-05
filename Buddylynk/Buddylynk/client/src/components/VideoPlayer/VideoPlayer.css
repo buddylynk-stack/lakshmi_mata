@@ -59,10 +59,14 @@
 .video-placeholder {
     width: 100%;
     aspect-ratio: 16/9;
+    min-height: 200px;
+    max-height: 400px;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     border-radius: 0.8rem;
 }
 

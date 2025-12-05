@@ -1,16 +1,16 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
 
-// Image compression settings
-const MAX_IMAGE_SIZE = 1920; // Max width/height
-const IMAGE_QUALITY = 0.85; // JPEG quality
-const MAX_FILE_SIZE_MB = 10; // Max file size before compression
+// Image compression settings - optimized for faster uploads
+const MAX_IMAGE_SIZE = 1280; // Reduced from 1920 for faster upload
+const IMAGE_QUALITY = 0.75; // Reduced from 0.85 for smaller file size
+const MAX_FILE_SIZE_MB = 5; // Max file size before compression
 
 // Compress image before upload
 const compressImage = (file) => {
     return new Promise((resolve, reject) => {
-        // Skip if not an image or already small
-        if (!file.type.startsWith('image/') || file.size < 500 * 1024) {
+        // Skip if not an image or already small (< 300KB)
+        if (!file.type.startsWith('image/') || file.size < 300 * 1024) {
             resolve(file);
             return;
         }

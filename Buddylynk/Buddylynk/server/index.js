@@ -144,6 +144,76 @@ app.get("/", (req, res) => {
     res.send("Buddylynk API is running");
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // Auto-setup S3 public access on server start
+    try {
+        const { S3Client, PutBucketPolicyCommand, PutPublicAccessBlockCommand, GetBucketPolicyCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
+        const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+        
+        if (BUCKET_NAME && process.env.AWS_ACCESS_KEY_ID) {
+            const s3Client = new S3Client({
+                region: process.env.AWS_REGION || 'us-east-1',
+                credentials: {
+                    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+                }
+            });
+            
+            // Check if bucket exists
+            await s3Client.send(new HeadBucketCommand({ Bucket: BUCKET_NAME }));
+            
+            // Check if public access is already set
+            let needsSetup = false;
+            try {
+                const policy = await s3Client.send(new GetBucketPolicyCommand({ Bucket: BUCKET_NAME }));
+                const policyJson = JSON.parse(policy.Policy);
+                const hasPublicRead = policyJson.Statement?.some(s => 
+                    s.Effect === 'Allow' && s.Principal === '*' && s.Action === 's3:GetObject'
+                );
+                needsSetup = !hasPublicRead;
+            } catch (e) {
+                needsSetup = true; // No policy exists
+            }
+            
+            if (needsSetup) {
+                console.log('🔧 Setting up S3 public access...');
+                
+                // Disable block public access
+                await s3Client.send(new PutPublicAccessBlockCommand({
+                    Bucket: BUCKET_NAME,
+                    PublicAccessBlockConfiguration: {
+                        BlockPublicAcls: false,
+                        IgnorePublicAcls: false,
+                        BlockPublicPolicy: false,
+                        RestrictPublicBuckets: false
+                    }
+                }));
+                
+                // Set bucket policy
+                const bucketPolicy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'PublicReadGetObject',
+                        Effect: 'Allow',
+                        Principal: '*',
+                        Action: 's3:GetObject',
+                        Resource: `arn:aws:s3:::${BUCKET_NAME}/*`
+                    }]
+                };
+                
+                await s3Client.send(new PutBucketPolicyCommand({
+                    Bucket: BUCKET_NAME,
+                    Policy: JSON.stringify(bucketPolicy)
+                }));
+                
+                console.log('✅ S3 public access configured successfully!');
+            } else {
+                console.log('✅ S3 public access already configured');
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ S3 setup skipped:', error.message);
+    }
 });

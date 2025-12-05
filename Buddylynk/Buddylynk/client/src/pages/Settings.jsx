@@ -526,7 +526,7 @@ const Settings = () => {
                     {/* Version Section */}
                     <motion.div variants={itemVariants} className="text-center py-6">
                         <p className="text-theme-secondary text-sm">Version</p>
-                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.17</p>
+                        <p className="text-lg font-semibold dark:text-white text-gray-900">Budy 2.32</p>
                     </motion.div>
                 </motion.div>
             </div>

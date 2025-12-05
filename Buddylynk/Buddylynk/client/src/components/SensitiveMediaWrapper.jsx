@@ -1,21 +1,22 @@
 /**
  * SensitiveMediaWrapper - Handles show/blur/hide for sensitive content
- * Respects user's sensitiveContentSetting from localStorage
+ * Optimized for performance
  */
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, memo, useMemo } from "react";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
 
-const SensitiveMediaWrapper = ({ children, isSensitive = false, className = "" }) => {
+const SensitiveMediaWrapper = memo(({ children, isSensitive = false, className = "" }) => {
     const [revealed, setRevealed] = useState(false);
     
-    // Get user's preference from localStorage
-    const sensitiveContentSetting = localStorage.getItem("sensitiveContentSetting") || "blur";
+    // Memoize localStorage read
+    const sensitiveContentSetting = useMemo(() => 
+        localStorage.getItem("sensitiveContentSetting") || "blur"
+    , []);
     
     // If content is not sensitive, or user chose "show", render normally
     if (!isSensitive || sensitiveContentSetting === "show") {
-        return <div className={className}>{children}</div>;
+        return <>{children}</>;
     }
     
     // If user chose "hide", show a placeholder message
@@ -68,7 +69,6 @@ const SensitiveMediaWrapper = ({ children, isSensitive = false, className = "" }
     return (
         <div className={`${className} relative`}>
             {children}
-            {/* Small indicator that content was revealed */}
             <button
                 onClick={() => setRevealed(false)}
                 className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white/70 hover:text-white transition-colors z-10"
@@ -78,6 +78,8 @@ const SensitiveMediaWrapper = ({ children, isSensitive = false, className = "" }
             </button>
         </div>
     );
-};
+});
+
+SensitiveMediaWrapper.displayName = 'SensitiveMediaWrapper';
 
 export default SensitiveMediaWrapper;

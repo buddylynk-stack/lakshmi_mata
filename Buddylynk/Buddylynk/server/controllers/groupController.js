@@ -447,25 +447,32 @@ const addPostToGroup = async (req, res) => {
 
         // Handle multiple media uploads
         if (req.files && req.files.length > 0) {
+            console.log(`📤 Uploading ${req.files.length} media file(s) for group ${id}`);
             for (const file of req.files) {
-                const mediaUrl = await uploadToS3(file);
-                
-                // Detect media type
-                let mediaType = 'document';
-                if (file.mimetype.startsWith('image/')) {
-                    mediaType = 'image';
-                } else if (file.mimetype.startsWith('video/')) {
-                    mediaType = 'video';
-                } else if (file.mimetype.startsWith('audio/')) {
-                    mediaType = 'audio';
+                try {
+                    const mediaUrl = await uploadToS3(file);
+                    console.log(`✅ Media uploaded: ${mediaUrl}`);
+                    
+                    // Detect media type
+                    let mediaType = 'document';
+                    if (file.mimetype.startsWith('image/')) {
+                        mediaType = 'image';
+                    } else if (file.mimetype.startsWith('video/')) {
+                        mediaType = 'video';
+                    } else if (file.mimetype.startsWith('audio/')) {
+                        mediaType = 'audio';
+                    }
+                    
+                    mediaArray.push({
+                        url: mediaUrl,
+                        type: mediaType,
+                        name: file.originalname
+                    });
+                } catch (uploadError) {
+                    console.error(`❌ Failed to upload ${file.originalname}:`, uploadError.message);
                 }
-                
-                mediaArray.push({
-                    url: mediaUrl,
-                    type: mediaType,
-                    name: file.originalname
-                });
             }
+            console.log(`📦 Total media uploaded: ${mediaArray.length}`);
         }
         
         const postData = {
@@ -492,6 +499,72 @@ const addPostToGroup = async (req, res) => {
         });
         
         console.log(`✅ Post added to group ${id}`);
+        
+        res.json(updatedGroup);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// Fast upload - media already uploaded to S3 via presigned URLs
+const addPostToGroupWithUrls = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { content, media } = req.body;
+        const userId = req.user.userId;
+
+        console.log(`📝 Creating group post with direct S3 URLs...`);
+        console.log(`📎 ${media?.length || 0} media URL(s) provided`);
+
+        // Get the group to check permissions
+        const group = await Group.getGroupById(id);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
+
+        // Check permissions
+        const isOwner = group.creatorId === userId;
+        const isAdmin = group.admins?.includes(userId);
+        const isMember = group.members?.includes(userId);
+        const isChannel = group.type === 'channel';
+        
+        if (isChannel) {
+            if (!isOwner && !isAdmin) {
+                return res.status(403).json({ message: "Only admins can send messages in this channel" });
+            }
+        } else {
+            const allowMembersToChat = group.allowMembersToChat !== false;
+            if (allowMembersToChat) {
+                if (!isMember) {
+                    return res.status(403).json({ message: "You must be a member to post in this group" });
+                }
+            } else {
+                if (!isOwner && !isAdmin) {
+                    return res.status(403).json({ message: "Only admins can send messages in this group" });
+                }
+            }
+        }
+
+        const postData = {
+            userId: req.user.userId,
+            username: req.user.username,
+            content,
+            type: "text",
+            media: media || [],
+        };
+        
+        const updatedGroup = await Group.addPostToGroup(id, postData);
+        
+        // Broadcast group update via Redis PUB/SUB
+        const socketService = req.app.get("socketService");
+        await socketService.publishEvent(socketService.CHANNELS.GROUP_UPDATED, {
+            groupId: id,
+            group: updatedGroup,
+            action: 'newPost'
+        });
+        
+        console.log(`✅ Post added to group ${id} (fast upload)`);
         
         res.json(updatedGroup);
     } catch (error) {
@@ -862,6 +935,7 @@ module.exports = {
     leaveGroup,
     deleteGroup,
     addPostToGroup,
+    addPostToGroupWithUrls,
     editGroupPost,
     deleteGroupPost,
     regenerateInviteLink,

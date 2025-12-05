@@ -62,6 +62,7 @@ router.delete("/:id/admins", protect, removeAdmin); // Remove admin
 
 // Posts
 router.post("/:id/posts", protect, upload.array("media", 20), addPostToGroup); // Allow up to 20 files
+router.post("/:id/posts/with-urls", protect, require("../controllers/groupController").addPostToGroupWithUrls); // Fast direct S3 upload
 router.put("/:id/posts/:postId", protect, editGroupPost);
 router.delete("/:id/posts/:postId", protect, deleteGroupPost);
 router.post("/:id/posts/:postId/like", protect, likeGroupPost); // Like/unlike post

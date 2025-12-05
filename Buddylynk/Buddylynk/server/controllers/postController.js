@@ -154,38 +154,7 @@ const createPostWithUrls = async (req, res) => {
         console.log(`\n📝 Creating new post with direct S3 URLs...`);
         console.log(`📎 ${media?.length || 0} media URL(s) provided`);
 
-        // NSFW Detection - Check all media URLs and mark sensitive content
-        if (media && media.length > 0) {
-            console.log(`🔍 Running NSFW detection on ${media.length} media URL(s)...`);
-            
-            try {
-                const nsfwResults = await checkAllMedia(media);
-                
-                // Check if any media is NSFW - mark as sensitive instead of rejecting
-                const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
-                
-                if (nsfwMedia.length > 0) {
-                    console.log(`⚠️  NSFW content detected in ${nsfwMedia.length} file(s) - marking as sensitive`);
-                    // Mark each media item with isNsfw flag
-                    nsfwResults.forEach((result, index) => {
-                        if (result.isNsfw && media[index]) {
-                            media[index].isNsfw = true;
-                            media[index].nsfwConfidence = result.confidence;
-                        }
-                    });
-                }
-                
-                console.log(`✅ NSFW check complete - ${nsfwMedia.length} sensitive item(s) marked`);
-            } catch (nsfwError) {
-                console.error(`⚠️  NSFW check failed:`, nsfwError.message);
-                // Continue anyway if NSFW check fails (fail open)
-            }
-        }
-
         const user = await User.getUserById(userId);
-
-        // Check if any media is marked as NSFW
-        const hasNsfwContent = media && media.some(m => m.isNsfw);
 
         const postData = {
             userId: userId,
@@ -193,7 +162,7 @@ const createPostWithUrls = async (req, res) => {
             userAvatar: user.avatar,
             content,
             media: media || [],
-            isNsfw: hasNsfwContent, // Post-level flag for sensitive content
+            isNsfw: false, // Will be updated async if needed
         };
 
         // Add poll options if provided
@@ -201,14 +170,48 @@ const createPostWithUrls = async (req, res) => {
             postData.pollOptions = pollOptions.filter(opt => opt.trim());
         }
 
+        // Create post FIRST (fast response to user)
         const newPost = await Post.createPost(postData);
-        console.log(`✅ Post created successfully with ${media?.length || 0} media item(s)${hasNsfwContent ? ' (contains sensitive content)' : ''}\n`);
+        console.log(`✅ Post created successfully with ${media?.length || 0} media item(s)\n`);
 
         // Broadcast new post to ALL users via Redis PUB/SUB
         await socketService.publishEvent(socketService.CHANNELS.POST_CREATED, newPost);
         console.log(`📡 Published new post to Redis: ${newPost.postId}`);
 
+        // Send response immediately (don't wait for NSFW check)
         res.status(201).json(newPost);
+
+        // NSFW Detection - Run in background AFTER response sent
+        if (media && media.length > 0) {
+            setImmediate(async () => {
+                try {
+                    console.log(`🔍 [Background] Running NSFW detection on ${media.length} media URL(s)...`);
+                    const nsfwResults = await checkAllMedia(media);
+                    
+                    const nsfwMedia = nsfwResults.filter(result => result.isNsfw);
+                    
+                    if (nsfwMedia.length > 0) {
+                        console.log(`⚠️  [Background] NSFW content detected - updating post`);
+                        // Update post with NSFW flags
+                        const updatedMedia = media.map((m, index) => ({
+                            ...m,
+                            isNsfw: nsfwResults[index]?.isNsfw || false,
+                            nsfwConfidence: nsfwResults[index]?.confidence
+                        }));
+                        
+                        await Post.updatePostNsfw(newPost.postId, updatedMedia, true);
+                        
+                        // Broadcast update
+                        const updatedPost = await Post.getPostById(newPost.postId);
+                        await socketService.publishEvent(socketService.CHANNELS.POST_UPDATED, updatedPost);
+                    }
+                    console.log(`✅ [Background] NSFW check complete`);
+                } catch (nsfwError) {
+                    console.error(`⚠️  [Background] NSFW check failed:`, nsfwError.message);
+                }
+            });
+        }
+        
     } catch (error) {
         console.error('❌ Post creation failed:', error);
         res.status(500).json({ message: "Server error", error: error.message });
