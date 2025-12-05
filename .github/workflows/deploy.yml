@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Cancel any in-progress runs when a new one starts
+concurrency:
+  group: deploy-to-ec2
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
