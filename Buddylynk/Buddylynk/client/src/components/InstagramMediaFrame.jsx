@@ -1,12 +1,14 @@
 import { memo } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { RetryImage } from './SafeImage';
+import { useHLSUrl } from '../hooks/useHLSUrl';
 
 /**
  * Instagram-Style Smart Media Frame - Optimized
  * - Lazy loading for images and videos
  * - Memoized to prevent unnecessary re-renders
  * - Fast loading with placeholders
+ * - HLS adaptive streaming support for videos
  */
 const InstagramMediaFrame = memo(({ 
     media, 
@@ -18,6 +20,9 @@ const InstagramMediaFrame = memo(({
     if (!media) return null;
 
     const isVideo = media.type === 'video';
+    
+    // Get HLS URL if available (only for videos)
+    const { hlsUrl, isHLS } = useHLSUrl(isVideo ? media.url : null);
 
     return (
         <div className="instagram-media-frame">
@@ -26,8 +31,15 @@ const InstagramMediaFrame = memo(({
                     <div className="w-full h-full flex items-center justify-center">
                         <VideoPlayer 
                             src={media.url}
+                            hlsSrc={isHLS ? hlsUrl : null}
                             className="w-full h-full"
                         />
+                        {/* HLS badge */}
+                        {isHLS && (
+                            <div className="absolute top-2 left-2 bg-purple-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded z-10">
+                                HD
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <RetryImage
