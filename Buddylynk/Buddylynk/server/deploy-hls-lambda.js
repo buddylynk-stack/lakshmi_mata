@@ -114,7 +114,6 @@ async function deployLambda(roleArn, zipBuffer) {
     console.log('🚀 Deploying Lambda function...');
 
     const envVars = {
-        AWS_REGION: REGION,
         MEDIACONVERT_ENDPOINT: MEDIACONVERT_ENDPOINT,
         MEDIACONVERT_ROLE_ARN: MEDIACONVERT_ROLE_ARN,
         HLS_OUTPUT_BUCKET: OUTPUT_BUCKET,
@@ -156,18 +155,28 @@ async function setupS3Trigger() {
     const accountId = roleResp.Role.Arn.split(':')[4];
     const lambdaArn = `arn:aws:lambda:${REGION}:${accountId}:function:${LAMBDA_NAME}`;
 
-    // Add permission for S3 to invoke Lambda
+    // Add permission for S3 to invoke Lambda (delete old one first if exists)
     try {
-        await lambda.send(new AddPermissionCommand({
+        const { RemovePermissionCommand } = require('@aws-sdk/client-lambda');
+        await lambda.send(new RemovePermissionCommand({
             FunctionName: LAMBDA_NAME,
             StatementId: 'S3InvokePermission',
-            Action: 'lambda:InvokeFunction',
-            Principal: 's3.amazonaws.com',
-            SourceArn: `arn:aws:s3:::${INPUT_BUCKET}`,
         }));
-    } catch (e) {
-        if (!e.message?.includes('already exists')) throw e;
-    }
+    } catch (e) { /* Ignore if doesn't exist */ }
+
+    // Add fresh permission
+    await lambda.send(new AddPermissionCommand({
+        FunctionName: LAMBDA_NAME,
+        StatementId: 'S3InvokePermission',
+        Action: 'lambda:InvokeFunction',
+        Principal: 's3.amazonaws.com',
+        SourceArn: `arn:aws:s3:::${INPUT_BUCKET}`,
+        SourceAccount: accountId,
+    }));
+    console.log('   ✅ Lambda permission added');
+
+    // Wait a bit for permission to propagate
+    await new Promise(r => setTimeout(r, 3000));
 
     // Configure S3 bucket notification
     await s3.send(new PutBucketNotificationConfigurationCommand({
