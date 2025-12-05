@@ -20,7 +20,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.934.0",
     "@aws-sdk/client-dynamodb": "^3.934.0",
+    "@aws-sdk/client-iam": "^3.934.0",
+    "@aws-sdk/client-mediaconvert": "^3.934.0",
     "@aws-sdk/client-s3": "^3.934.0",
     "@aws-sdk/lib-dynamodb": "^3.934.0",
     "@aws-sdk/s3-request-presigner": "^3.937.0",

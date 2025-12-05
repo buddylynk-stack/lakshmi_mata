@@ -147,4 +147,43 @@ router.get('/check-s3', async (req, res) => {
     }
 });
 
+// HLS Video Status endpoint
+router.get('/hls-status/:jobId', protect, async (req, res) => {
+    try {
+        const hlsService = require('../services/hlsService');
+        const status = await hlsService.getJobStatus(req.params.jobId);
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get HLS URL for a video (returns HLS if available, otherwise original)
+router.post('/get-video-url', async (req, res) => {
+    try {
+        const { videoUrl } = req.body;
+        if (!videoUrl) return res.status(400).json({ error: 'videoUrl required' });
+        
+        const hlsService = require('../services/hlsService');
+        const result = await hlsService.getVideoUrl(videoUrl);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check if HLS exists for a video
+router.post('/check-hls', async (req, res) => {
+    try {
+        const { videoUrl } = req.body;
+        if (!videoUrl) return res.status(400).json({ error: 'videoUrl required' });
+        
+        const hlsService = require('../services/hlsService');
+        const result = await hlsService.checkHLSExists(videoUrl);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

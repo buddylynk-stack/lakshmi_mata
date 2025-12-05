@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
-import { Play, Maximize, Minimize } from 'lucide-react';
+import { Play, Maximize, Minimize, Settings } from 'lucide-react';
+import Hls from 'hls.js';
 import './VideoPlayer.css';
 
 // Simple global manager to ensure only one video plays at a time
@@ -24,10 +25,11 @@ const getPlayManager = () => {
 // Detect mobile for performance optimizations
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
 
-const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null }) => {
+const VideoPlayer = memo(({ src, hlsSrc, className = "", poster = null, thumbnail = null }) => {
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const progressBarRef = useRef(null);
+    const hlsRef = useRef(null);
     
     // Video doesn't load until user clicks - NO thumbnail video loading
     const [videoActivated, setVideoActivated] = useState(false);
@@ -37,7 +39,14 @@ const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
+    const [showQuality, setShowQuality] = useState(false);
+    const [currentQuality, setCurrentQuality] = useState('auto');
+    const [availableQualities, setAvailableQualities] = useState([]);
     const controlsTimeoutRef = useRef(null);
+    
+    // Determine if we should use HLS
+    const isHLS = hlsSrc?.endsWith('.m3u8') || src?.endsWith('.m3u8');
+    const videoSource = hlsSrc || src;
 
     // Handle video events after activation
     useEffect(() => {
@@ -47,6 +56,55 @@ const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null
         const manager = getPlayManager();
         manager.register(video);
         video.loop = true;
+
+        // Initialize HLS.js for adaptive streaming
+        if (isHLS && Hls.isSupported()) {
+            const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 90,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                startLevel: -1, // Auto quality selection
+            });
+            
+            hls.loadSource(videoSource);
+            hls.attachMedia(video);
+            hlsRef.current = hls;
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+                // Get available quality levels
+                const qualities = data.levels.map((level, index) => ({
+                    index,
+                    height: level.height,
+                    bitrate: level.bitrate,
+                    label: `${level.height}p`,
+                }));
+                setAvailableQualities([{ index: -1, label: 'Auto' }, ...qualities]);
+                video.play().catch(() => {});
+            });
+            
+            hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+                const level = hls.levels[data.level];
+                if (level) setCurrentQuality(`${level.height}p`);
+            });
+            
+            hls.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) {
+                    console.error('HLS fatal error:', data.type);
+                    // Fallback to direct MP4 if HLS fails
+                    if (src && !src.endsWith('.m3u8')) {
+                        video.src = src;
+                    }
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl') && isHLS) {
+            // Native HLS support (Safari)
+            video.src = videoSource;
+        } else {
+            // Regular MP4
+            video.src = videoSource;
+        }
 
         const handleLoadedMetadata = () => setDuration(video.duration);
         // Throttle time updates on mobile for better performance
@@ -97,8 +155,22 @@ const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null
             video.removeEventListener('pause', handlePause);
             try { visibilityObserver.disconnect(); } catch {}
             manager.unregister(video);
+            // Cleanup HLS
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
         };
-    }, [videoActivated]);
+    }, [videoActivated, videoSource, isHLS, src]);
+    
+    // Quality selection handler
+    const setQuality = (levelIndex) => {
+        if (hlsRef.current) {
+            hlsRef.current.currentLevel = levelIndex;
+            setCurrentQuality(levelIndex === -1 ? 'Auto' : availableQualities.find(q => q.index === levelIndex)?.label);
+        }
+        setShowQuality(false);
+    };
 
     // User clicks thumbnail to activate video
     const activateVideo = () => {
@@ -180,7 +252,6 @@ const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null
                 <>
                     <video
                         ref={videoRef}
-                        src={src}
                         className="video-element"
                         onClick={togglePlay}
                         playsInline
@@ -227,6 +298,31 @@ const VideoPlayer = memo(({ src, className = "", poster = null, thumbnail = null
                                 </div>
                             </div>
                             <div className="controls-right">
+                                {/* Quality selector for HLS */}
+                                {isHLS && availableQualities.length > 1 && (
+                                    <div className="quality-selector">
+                                        <button 
+                                            onClick={() => setShowQuality(!showQuality)} 
+                                            className="control-btn quality-btn"
+                                        >
+                                            <Settings className="w-4 h-4" />
+                                            <span className="quality-label">{currentQuality}</span>
+                                        </button>
+                                        {showQuality && (
+                                            <div className="quality-menu">
+                                                {availableQualities.map((q) => (
+                                                    <button
+                                                        key={q.index}
+                                                        onClick={() => setQuality(q.index)}
+                                                        className={`quality-option ${currentQuality === q.label ? 'active' : ''}`}
+                                                    >
+                                                        {q.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <button onClick={toggleFullscreen} className="control-btn">
                                     {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                                 </button>

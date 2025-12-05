@@ -10,6 +10,14 @@ const upload = multer({
     limits: { fileSize: Infinity } // Unlimited
 });
 
+// HLS Service for video transcoding
+let hlsService = null;
+try {
+    hlsService = require("../services/hlsService");
+} catch (e) {
+    console.log('⚠️ HLS service not available');
+}
+
 const uploadToS3 = async (file) => {
     if (!BUCKET_NAME) {
         console.error('❌ S3 Upload Error: Bucket name not configured');
@@ -51,8 +59,9 @@ const uploadToS3 = async (file) => {
             processedBuffer = file.buffer;
         }
     } else if (file.mimetype.startsWith('video/')) {
-        // Videos upload as-is
+        // Videos upload as-is, HLS transcoding triggered after upload
         console.log(`   Video upload: ${file.mimetype}`);
+        console.log(`   🎬 HLS transcoding will be triggered after upload`);
     }
 
     console.log(`   Bucket: ${BUCKET_NAME}`);
@@ -71,6 +80,21 @@ const uploadToS3 = async (file) => {
         await s3Client.send(command);
         const url = `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
         console.log(`✅ S3 Upload Success: ${url}`);
+        
+        // Auto-trigger HLS transcoding for videos
+        if (file.mimetype.startsWith('video/') && hlsService && process.env.MEDIACONVERT_ROLE_ARN) {
+            setImmediate(async () => {
+                try {
+                    const hlsResult = await hlsService.startHLSTranscode(url);
+                    if (hlsResult) {
+                        console.log(`🎬 HLS job queued: ${hlsResult.jobId}`);
+                    }
+                } catch (hlsErr) {
+                    console.error(`⚠️ HLS transcode failed:`, hlsErr.message);
+                }
+            });
+        }
+        
         return url;
     } catch (error) {
         console.error(`❌ S3 Upload Failed:`, error.message);
