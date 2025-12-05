@@ -1,0 +1,1 @@
+{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["mediaconvert:CreateJob","mediaconvert:DescribeEndpoints"],"Resource":"*"},{"Effect":"Allow","Action":"iam:PassRole","Resource":"arn:aws:iam::804139726840:role/BuddylynkMediaConvertRole"}]}

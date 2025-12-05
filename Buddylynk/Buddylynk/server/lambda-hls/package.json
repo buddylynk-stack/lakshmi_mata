@@ -1,0 +1,7 @@
+{
+  "name": "buddylynk-hls-trigger",
+  "version": "1.0.0",
+  "dependencies": {
+    "@aws-sdk/client-mediaconvert": "^3.934.0"
+  }
+}
