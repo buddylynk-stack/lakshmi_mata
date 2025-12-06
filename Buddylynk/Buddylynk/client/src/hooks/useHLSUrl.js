@@ -40,16 +40,14 @@ export function useHLSUrl(originalUrl) {
             return;
         }
 
-        // Try to construct HLS URL directly and check if it exists
+        // Check if HLS exists (silently - no console errors)
         const checkHLS = async () => {
             setLoading(true);
             try {
-                // Generate expected HLS URL using unified CloudFront
                 const expectedHlsUrl = getExpectedHLSUrl(originalUrl, CLOUDFRONT_DOMAIN);
                 
                 if (expectedHlsUrl) {
-                    // Quick HEAD request to check if HLS exists
-                    const response = await fetch(expectedHlsUrl, { method: 'HEAD' });
+                    const response = await fetch(expectedHlsUrl, { method: 'HEAD', mode: 'cors' });
                     
                     if (response.ok) {
                         hlsCache.set(originalUrl, { exists: true, hlsUrl: expectedHlsUrl });
@@ -59,11 +57,11 @@ export function useHLSUrl(originalUrl) {
                     }
                 }
                 
-                // HLS not available yet
+                // HLS not available - cache and use MP4
                 hlsCache.set(originalUrl, { exists: false, hlsUrl: null });
                 setIsHLS(false);
-            } catch (err) {
-                // HLS not available, use original
+            } catch {
+                // Silently fail - use MP4
                 hlsCache.set(originalUrl, { exists: false, hlsUrl: null });
                 setIsHLS(false);
             } finally {
