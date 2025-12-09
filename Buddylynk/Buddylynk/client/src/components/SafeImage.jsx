@@ -4,8 +4,25 @@ import { useState, useEffect, useRef } from "react";
 const RETRY_INTERVAL = 5000; // 5 seconds
 const MAX_RETRIES = 3; // Only retry 3 times
 
+// Transform CloudFront URLs to S3 URLs (fixes broken CloudFront distribution)
+const transformMediaUrl = (url) => {
+    if (!url) return url;
+
+    // Convert broken CloudFront URLs to S3 URLs
+    // CloudFront: https://d1urwintyo9xhn.cloudfront.net/filename.jpg
+    // S3: https://buddylynk-media-bucket-2024.s3.amazonaws.com/filename.jpg
+    if (url.includes('d1urwintyo9xhn.cloudfront.net')) {
+        const filename = url.split('/').pop().split('?')[0]; // Get filename without query params
+        return `https://buddylynk-media-bucket-2024.s3.amazonaws.com/${filename}`;
+    }
+
+    return url;
+};
+
 export const SafeAvatar = ({ src, alt, className, fallbackText, username, onClick }) => {
-    const [imgSrc, setImgSrc] = useState(src);
+    // Transform CloudFront to S3
+    const transformedSrc = transformMediaUrl(src);
+    const [imgSrc, setImgSrc] = useState(transformedSrc);
     const [retryCount, setRetryCount] = useState(0);
     const [hasLogged, setHasLogged] = useState(false);
     const maxRetries = 1; // Reduced from 2 to 1
@@ -54,6 +71,7 @@ export const SafeAvatar = ({ src, alt, className, fallbackText, username, onClic
 };
 
 export const SafeImage = ({ src, alt, className, fallback = null, onClick, loading = "lazy" }) => {
+    const transformedSrc = transformMediaUrl(src);
     const [error, setError] = useState(false);
 
     if (error && !fallback) {
@@ -62,7 +80,7 @@ export const SafeImage = ({ src, alt, className, fallback = null, onClick, loadi
 
     return (
         <img
-            src={error && fallback ? fallback : src}
+            src={error && fallback ? fallback : transformedSrc}
             alt={alt}
             className={className}
             onClick={onClick}
@@ -75,15 +93,16 @@ export const SafeImage = ({ src, alt, className, fallback = null, onClick, loadi
 };
 
 export const SafeBanner = ({ src, alt, className }) => {
+    const transformedSrc = transformMediaUrl(src);
     const [error, setError] = useState(false);
 
     if (error) {
         return <div className="w-full h-full bg-gradient-to-r from-primary/20 to-secondary/20" />;
     }
 
-    return src ? (
+    return transformedSrc ? (
         <img
-            src={src}
+            src={transformedSrc}
             alt={alt}
             className={className}
             onError={() => setError(true)}
@@ -104,7 +123,8 @@ export const RetryImage = ({
     loading = "lazy", // Add lazy loading support
     onClick
 }) => {
-    const [imageSrc, setImageSrc] = useState(src);
+    const transformedSrc = transformMediaUrl(src);
+    const [imageSrc, setImageSrc] = useState(transformedSrc);
     const [retryCount, setRetryCount] = useState(0);
     const [isDeleted, setIsDeleted] = useState(false);
     const retryTimerRef = useRef(null);
@@ -122,14 +142,14 @@ export const RetryImage = ({
         // If we've exceeded max retries, check if it's a 403/404 (deleted from S3)
         if (retryCount >= MAX_RETRIES) {
             console.log(`⚠️ Image failed after ${retryCount} retries: ${src}`);
-            
+
             // Check if the image returns 403 or 404 (deleted from S3)
             try {
                 const response = await fetch(src, { method: 'HEAD' });
                 if (response.status === 403 || response.status === 404) {
                     console.log(`🗑️ Image deleted from S3 (${response.status}). Auto-deleting post...`);
                     setIsDeleted(true);
-                    
+
                     // If onDelete callback is provided and we have a postId, call it to delete the post
                     if (onDelete && postId) {
                         console.log(`✅ Triggering post deletion for postId: ${postId}`);
@@ -145,7 +165,7 @@ export const RetryImage = ({
                 // If fetch fails, assume it's deleted
                 console.log(`🗑️ Image unreachable. Auto-deleting post...`);
                 setIsDeleted(true);
-                
+
                 if (onDelete && postId) {
                     setTimeout(() => {
                         onDelete(postId);
@@ -153,7 +173,7 @@ export const RetryImage = ({
                 }
                 return;
             }
-            
+
             // If not deleted, just hide the image
             setIsDeleted(true);
             return;

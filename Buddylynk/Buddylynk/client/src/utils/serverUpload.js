@@ -65,9 +65,9 @@ const compressImage = (file) => {
 // Upload via presigned URL (fastest - direct to S3)
 const uploadViaPresignedUrl = async (file, onProgress) => {
     const token = localStorage.getItem('token');
-    
+
     console.log('🚀 Starting direct S3 upload for:', file.name);
-    
+
     // Get presigned URL from server
     const { data } = await axios.post(`${API_BASE_URL}/upload/presigned-url`, {
         fileName: file.name,
@@ -81,7 +81,7 @@ const uploadViaPresignedUrl = async (file, onProgress) => {
     // Upload directly to S3 using XMLHttpRequest for better progress tracking
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        
+
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable && onProgress) {
                 const percent = Math.round((e.loaded * 100) / e.total);
@@ -120,9 +120,9 @@ const uploadViaPresignedUrl = async (file, onProgress) => {
 const uploadViaServerDirect = async (file, onProgress) => {
     const formData = new FormData();
     formData.append('media', file);
-    
+
     const token = localStorage.getItem('token');
-    
+
     const response = await axios.post(`${API_BASE_URL}/upload/server`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
@@ -136,7 +136,7 @@ const uploadViaServerDirect = async (file, onProgress) => {
         },
         timeout: 120000 // 2 minute timeout for large files
     });
-    
+
     return response.data.url;
 };
 
@@ -144,7 +144,7 @@ const uploadViaServerDirect = async (file, onProgress) => {
 export const uploadViaServer = async (file, onProgress) => {
     try {
         console.log(`📤 Uploading: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
+
         // Compress images before upload
         let fileToUpload = file;
         if (file.type.startsWith('image/') && file.size > 1024 * 1024) {
@@ -152,19 +152,24 @@ export const uploadViaServer = async (file, onProgress) => {
             fileToUpload = await compressImage(file);
         }
 
-        // Try presigned URL first (fastest)
+        // Use server upload FIRST (more reliable - bypasses S3 CORS issues)
+        try {
+            const url = await uploadViaServerDirect(fileToUpload, onProgress);
+            console.log('✅ Upload via server successful');
+            return url;
+        } catch (serverError) {
+            console.log('⚠️ Server upload failed, trying presigned URL:', serverError.message);
+        }
+
+        // Fallback to presigned URL
         try {
             const url = await uploadViaPresignedUrl(fileToUpload, onProgress);
             console.log('✅ Upload via presigned URL successful');
             return url;
         } catch (presignedError) {
-            console.log('⚠️ Presigned URL failed, falling back to server upload');
+            console.error('❌ Both upload methods failed');
+            throw presignedError;
         }
-
-        // Fallback to server upload
-        const url = await uploadViaServerDirect(fileToUpload, onProgress);
-        console.log('✅ Upload via server successful');
-        return url;
     } catch (error) {
         console.error('❌ Upload error:', error);
         throw error;
@@ -179,20 +184,20 @@ export const uploadMultipleFiles = async (files, onProgress) => {
 
     // Upload in parallel batches of 3
     const batchSize = 3;
-    
+
     for (let i = 0; i < files.length; i += batchSize) {
         const batch = files.slice(i, i + batchSize);
-        
+
         const batchPromises = batch.map(async (file, batchIndex) => {
             const fileIndex = i + batchIndex;
-            
+
             const url = await uploadViaServer(file, (fileProgress) => {
                 // Calculate overall progress
                 const baseProgress = (completedFiles / totalFiles) * 100;
                 const fileContribution = (fileProgress / totalFiles);
                 onProgress?.(Math.round(baseProgress + fileContribution));
             });
-            
+
             completedFiles++;
             return { index: fileIndex, url, type: file.type.startsWith('video') ? 'video' : 'image' };
         });
@@ -203,7 +208,7 @@ export const uploadMultipleFiles = async (files, onProgress) => {
 
     // Sort by original index
     results.sort((a, b) => a.index - b.index);
-    
+
     return results.map(r => ({ url: r.url, type: r.type }));
 };
 
@@ -212,7 +217,7 @@ export const quickUpload = async (file) => {
     if (file.size > 1024 * 1024) {
         return uploadViaServer(file);
     }
-    
+
     // Direct upload without compression for small files
     return uploadViaServerDirect(file);
 };

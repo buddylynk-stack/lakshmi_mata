@@ -69,7 +69,7 @@ const Home = () => {
     const toast = useToast();
 
     const [userAvatars, setUserAvatars] = useState({});
-    
+
     // Helper function to require login for actions
     const requireLogin = (action, message) => {
         if (!user) {
@@ -135,7 +135,7 @@ const Home = () => {
         const handleUploadProgress = (data) => {
             console.log("Upload progress:", data);
             setUploadProgress(data.progress);
-            
+
             if (data.stage === "complete") {
                 setUploadSuccess(true);
                 setTimeout(() => {
@@ -205,11 +205,11 @@ const Home = () => {
             await fetchFreshPosts(true, true); // Pass refresh=true to API
             return;
         }
-        
+
         // Try to load from cache first for instant display
         const cacheKey = 'buddylynk_feed_cache';
         const cachedData = sessionStorage.getItem(cacheKey);
-        
+
         if (cachedData) {
             try {
                 const { posts: cachedPosts, timestamp } = JSON.parse(cachedData);
@@ -226,28 +226,28 @@ const Home = () => {
                 sessionStorage.removeItem(cacheKey);
             }
         }
-        
+
         setLoading(true);
         await fetchFreshPosts(true, false);
     };
-    
+
     const fetchFreshPosts = async (showLoading = true, refresh = false) => {
         try {
             const endpoint = "/api/posts/feed";
-            const res = await axios.get(endpoint, { 
-                params: { 
+            const res = await axios.get(endpoint, {
+                params: {
                     limit: 20,
                     refresh: refresh ? 'true' : undefined // Triggers zigzag shuffle on server
                 },
-                timeout: 10000
+                timeout: 30000
             });
 
             const feedPosts = res.data.posts || res.data;
             const algorithm = res.data.algorithm || 'unknown';
-            
+
             // Log the algorithm used
             console.log(`📰 Feed loaded with algorithm: ${algorithm}`);
-            
+
             const blockedUsers = user?.blockedUsers || [];
             const filteredPosts = feedPosts.filter(post => !blockedUsers.includes(post.userId));
             const validPosts = filteredPosts.filter(post =>
@@ -255,7 +255,7 @@ const Home = () => {
             );
 
             setPosts(validPosts);
-            
+
             // Cache the posts
             sessionStorage.setItem('buddylynk_feed_cache', JSON.stringify({
                 posts: validPosts,
@@ -333,7 +333,7 @@ const Home = () => {
             setMedia([]);
             setShowPollForm(false);
             setPollOptions(["", ""]);
-            
+
             // Show success and hide upload indicator
             setUploadProgress(100);
             setUploadStage("complete");
@@ -387,7 +387,7 @@ const Home = () => {
     // Track user interactions for ML recommendations
     const trackInteraction = async (postId, action, duration = 0) => {
         if (!user) return; // Only track for logged-in users
-        
+
         try {
             const token = localStorage.getItem("token");
             await axios.post("/api/posts/track", {
@@ -406,14 +406,14 @@ const Home = () => {
     const handleLike = async (postId) => {
         // Require login to like
         if (requireLogin("like", "Please login to like posts")) return;
-        
+
         // Optimistic update - update UI immediately
         setPosts(prevPosts => prevPosts.map(post => {
             if (post.postId === postId) {
                 const isLiked = post.likedBy?.includes(user.userId);
                 return {
                     ...post,
-                    likedBy: isLiked 
+                    likedBy: isLiked
                         ? post.likedBy.filter(id => id !== user.userId)
                         : [...(post.likedBy || []), user.userId],
                     likes: isLiked ? (post.likes || 1) - 1 : (post.likes || 0) + 1
@@ -427,7 +427,7 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/like`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Track like interaction for ML
             trackInteraction(postId, 'like');
         } catch (error) {
@@ -438,7 +438,7 @@ const Home = () => {
                     const isLiked = post.likedBy?.includes(user.userId);
                     return {
                         ...post,
-                        likedBy: isLiked 
+                        likedBy: isLiked
                             ? post.likedBy.filter(id => id !== user.userId)
                             : [...(post.likedBy || []), user.userId],
                         likes: isLiked ? (post.likes || 1) - 1 : (post.likes || 0) + 1
@@ -452,7 +452,7 @@ const Home = () => {
     const handleComment = async (postId) => {
         // Require login to comment
         if (requireLogin("comment", "Please login to comment on posts")) return;
-        
+
         const content = commentText[postId];
         if (!content?.trim()) return;
 
@@ -484,10 +484,10 @@ const Home = () => {
                 { content },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            
+
             // Track comment interaction for ML
             trackInteraction(postId, 'comment');
-            
+
             // Real-time update will replace temp comment
         } catch (error) {
             console.error("Error commenting:", error);
@@ -520,14 +520,14 @@ const Home = () => {
                 { content: editCommentText },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            
+
             // Update locally
             setPosts(prevPosts => prevPosts.map(post => {
                 if (post.postId === postId) {
                     return {
                         ...post,
-                        comments: post.comments.map(c => 
-                            c.commentId === commentId 
+                        comments: post.comments.map(c =>
+                            c.commentId === commentId
                                 ? { ...c, content: editCommentText, editedAt: new Date().toISOString() }
                                 : c
                         )
@@ -535,7 +535,7 @@ const Home = () => {
                 }
                 return post;
             }));
-            
+
             setEditingComment(null);
             setEditCommentText("");
         } catch (error) {
@@ -553,7 +553,7 @@ const Home = () => {
             await axios.delete(`/api/posts/${postId}/comment/${commentId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Update locally
             setPosts(prevPosts => prevPosts.map(post => {
                 if (post.postId === postId) {
@@ -577,7 +577,7 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/comment/${commentId}/pin`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Update locally
             setPosts(prevPosts => prevPosts.map(post => {
                 if (post.postId === postId) {
@@ -588,7 +588,7 @@ const Home = () => {
                 }
                 return post;
             }));
-            
+
             setShowCommentMenu({});
         } catch (error) {
             console.error("Error pinning comment:", error);
@@ -603,10 +603,10 @@ const Home = () => {
     const handleShare = async (postId) => {
         // Require login to share
         if (requireLogin("share", "Please login to share posts")) return;
-        
+
         const post = posts.find(p => p.postId === postId);
         const shareUrl = `${window.location.origin}/post/${postId}`;
-        
+
         // Optimistic update - increment share count immediately
         setPosts(prevPosts => prevPosts.map(p => {
             if (p.postId === postId) {
@@ -626,7 +626,7 @@ const Home = () => {
                     text: post?.content || 'Check out this post on Buddylynk!',
                     url: shareUrl
                 });
-                
+
                 // Show success message
                 const tempAlert = document.createElement('div');
                 tempAlert.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[9999] animate-fade-in';
@@ -651,7 +651,7 @@ const Home = () => {
             await axios.post(`/api/posts/${postId}/share`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Track share interaction for ML
             trackInteraction(postId, 'share');
         } catch (error) {
@@ -672,7 +672,7 @@ const Home = () => {
     const copyToClipboard = async (text) => {
         try {
             await navigator.clipboard.writeText(text);
-            
+
             // Create a more detailed alert showing the URL
             const tempAlert = document.createElement('div');
             tempAlert.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-[9999] animate-fade-in max-w-md';
@@ -692,16 +692,16 @@ const Home = () => {
     const handleSave = async (postId) => {
         // Require login to save
         if (requireLogin("save", "Please login to save posts")) return;
-        
+
         try {
             const token = localStorage.getItem("token");
             await axios.post(`/api/posts/${postId}/save`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Track save interaction for ML
             trackInteraction(postId, 'save');
-            
+
             // Real-time update will come via socket
         } catch (error) {
             console.error("Error saving post:", error);
@@ -713,7 +713,7 @@ const Home = () => {
             const token = localStorage.getItem("token");
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
             await axios.post(`/api/posts/${postId}/view`, {}, { headers });
-            
+
             // Track view interaction for ML (only for logged-in users)
             if (user) {
                 trackInteraction(postId, 'view', 2); // 2 seconds minimum view time
@@ -910,7 +910,7 @@ const Home = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
-                        
+
                         <button
                             onClick={() => setShowNotifications(!showNotifications)}
                             className="relative p-2 text-gray-400 dark:hover:text-white hover:text-gray-900 transition-colors rounded-full hover:bg-white/5"
@@ -935,7 +935,7 @@ const Home = () => {
                                         onClick={() => setShowNotifications(false)}
                                         className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[99]"
                                     />
-                                    
+
                                     {/* Mobile Bottom Sheet / Desktop Dropdown */}
                                     <motion.div
                                         initial={{ opacity: 0, y: window.innerWidth < 768 ? "100%" : -10 }}
@@ -946,7 +946,7 @@ const Home = () => {
                                     >
                                         {/* Swipe Indicator (Mobile) */}
                                         <div className="md:hidden w-10 h-1 bg-gray-400 rounded-full mx-auto mt-3" />
-                                        
+
                                         {/* Header */}
                                         <div className="flex items-center justify-between p-4 border-b dark:border-white/10 border-gray-200">
                                             <h3 className="font-bold dark:text-white text-gray-900 text-lg">Notifications</h3>
@@ -992,7 +992,7 @@ const Home = () => {
                                                                 default: return <Bell className="w-4 h-4 text-gray-500" />;
                                                             }
                                                         };
-                                                        
+
                                                         const getNotificationText = () => {
                                                             switch (notification.type) {
                                                                 case "like": return "liked your post";
@@ -1030,11 +1030,10 @@ const Home = () => {
                                                                     }
                                                                     setShowNotifications(false);
                                                                 }}
-                                                                className={`p-4 cursor-pointer transition-all active:scale-[0.98] ${
-                                                                    notification.read
+                                                                className={`p-4 cursor-pointer transition-all active:scale-[0.98] ${notification.read
                                                                         ? "dark:bg-transparent bg-white"
                                                                         : "dark:bg-primary/10 bg-primary/5"
-                                                                } dark:hover:bg-white/5 hover:bg-gray-50`}
+                                                                    } dark:hover:bg-white/5 hover:bg-gray-50`}
                                                             >
                                                                 <div className="flex items-start gap-3">
                                                                     <div className="relative">
@@ -1070,7 +1069,7 @@ const Home = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        
+
                                         {/* Mobile Safe Area */}
                                         <div className="md:hidden h-6 safe-bottom" />
                                     </motion.div>
@@ -1082,172 +1081,172 @@ const Home = () => {
 
                 {/* Create Post Widget - Only show for logged in users */}
                 {user ? (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-panel p-4"
-                >
-                    <form onSubmit={handlePostSubmit}>
-                        <div className="flex gap-4">
-                            <SafeAvatar
-                                src={user?.avatar}
-                                alt="Avatar"
-                                fallbackText={user?.username || 'User'}
-                                className="w-10 h-10 rounded-full"
-                            />
-                            <div className="flex-1">
-                                <textarea
-                                    placeholder="What's on your mind?"
-                                    className="w-full bg-transparent dark:text-white text-gray-900 placeholder-gray-400 resize-none focus:outline-none min-h-[60px]"
-                                    value={newPost}
-                                    onChange={(e) => setNewPost(e.target.value)}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-panel p-4"
+                    >
+                        <form onSubmit={handlePostSubmit}>
+                            <div className="flex gap-4">
+                                <SafeAvatar
+                                    src={user?.avatar}
+                                    alt="Avatar"
+                                    fallbackText={user?.username || 'User'}
+                                    className="w-10 h-10 rounded-full"
                                 />
-                                {media.length > 0 && (
-                                    <div className="mt-2 relative rounded-xl overflow-hidden bg-black">
-                                        {media.length === 1 ? (
-                                            // Single media preview
-                                            <div className="relative">
-                                                {media[0].type.startsWith('video') ? (
-                                                    <video src={URL.createObjectURL(media[0])} className="w-full max-h-96 object-contain" />
-                                                ) : (
-                                                    <img src={URL.createObjectURL(media[0])} alt="Preview" className="w-full max-h-96 object-contain" />
-                                                )}
+                                <div className="flex-1">
+                                    <textarea
+                                        placeholder="What's on your mind?"
+                                        className="w-full bg-transparent dark:text-white text-gray-900 placeholder-gray-400 resize-none focus:outline-none min-h-[60px]"
+                                        value={newPost}
+                                        onChange={(e) => setNewPost(e.target.value)}
+                                    />
+                                    {media.length > 0 && (
+                                        <div className="mt-2 relative rounded-xl overflow-hidden bg-black">
+                                            {media.length === 1 ? (
+                                                // Single media preview
+                                                <div className="relative">
+                                                    {media[0].type.startsWith('video') ? (
+                                                        <video src={URL.createObjectURL(media[0])} className="w-full max-h-96 object-contain" />
+                                                    ) : (
+                                                        <img src={URL.createObjectURL(media[0])} alt="Preview" className="w-full max-h-96 object-contain" />
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMedia([])}
+                                                        className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full p-2 text-white hover:bg-black/80 transition-colors"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                // Multiple media preview with carousel
+                                                <div className="relative">
+                                                    <div className="overflow-x-auto snap-x snap-mandatory flex scrollbar-hide">
+                                                        {media.map((file, index) => (
+                                                            <div key={index} className="w-full flex-shrink-0 snap-center relative">
+                                                                {file.type.startsWith('video') ? (
+                                                                    <video src={URL.createObjectURL(file)} className="w-full max-h-96 object-contain" />
+                                                                ) : (
+                                                                    <img src={URL.createObjectURL(file)} alt={`Preview ${index + 1}`} className="w-full max-h-96 object-contain" />
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setMedia(media.filter((_, i) => i !== index))}
+                                                                    className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full p-2 text-white hover:bg-black/80 transition-colors"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {/* Counter Badge */}
+                                                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-medium">
+                                                        {media.length} {media.length === 1 ? 'item' : 'items'}
+                                                    </div>
+                                                    {/* Dots Indicator */}
+                                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                                        {media.map((_, index) => (
+                                                            <div
+                                                                key={index}
+                                                                className="w-1.5 h-1.5 rounded-full bg-white/60"
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Poll Options */}
+                                    {showPollForm && (
+                                        <div className="mt-4 space-y-2 p-4 dark:bg-dark-lighter bg-gray-100 rounded-xl">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-sm dark:text-gray-400 text-gray-600">Poll Options</span>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setMedia([])}
-                                                    className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full p-2 text-white hover:bg-black/80 transition-colors"
+                                                    onClick={() => setShowPollForm(false)}
+                                                    className="dark:text-gray-400 text-gray-600 dark:hover:text-white hover:text-gray-900"
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </button>
                                             </div>
-                                        ) : (
-                                            // Multiple media preview with carousel
-                                            <div className="relative">
-                                                <div className="overflow-x-auto snap-x snap-mandatory flex scrollbar-hide">
-                                                    {media.map((file, index) => (
-                                                        <div key={index} className="w-full flex-shrink-0 snap-center relative">
-                                                            {file.type.startsWith('video') ? (
-                                                                <video src={URL.createObjectURL(file)} className="w-full max-h-96 object-contain" />
-                                                            ) : (
-                                                                <img src={URL.createObjectURL(file)} alt={`Preview ${index + 1}`} className="w-full max-h-96 object-contain" />
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setMedia(media.filter((_, i) => i !== index))}
-                                                                className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full p-2 text-white hover:bg-black/80 transition-colors"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {/* Counter Badge */}
-                                                <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-medium">
-                                                    {media.length} {media.length === 1 ? 'item' : 'items'}
-                                                </div>
-                                                {/* Dots Indicator */}
-                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                                                    {media.map((_, index) => (
-                                                        <div
-                                                            key={index}
-                                                            className="w-1.5 h-1.5 rounded-full bg-white/60"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                            {pollOptions.map((opt, index) => (
+                                                <input
+                                                    key={index}
+                                                    type="text"
+                                                    placeholder={`Option ${index + 1}`}
+                                                    className="input-field w-full"
+                                                    value={opt}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...pollOptions];
+                                                        newOpts[index] = e.target.value;
+                                                        setPollOptions(newOpts);
+                                                    }}
+                                                />
+                                            ))}
+                                            {pollOptions.length < 4 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={addPollOption}
+                                                    className="text-primary hover:text-primary-hover text-sm"
+                                                >
+                                                    + Add option
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
 
-                                {/* Poll Options */}
-                                {showPollForm && (
-                                    <div className="mt-4 space-y-2 p-4 dark:bg-dark-lighter bg-gray-100 rounded-xl">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm dark:text-gray-400 text-gray-600">Poll Options</span>
+                                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/10">
+                                        <div className="flex gap-2">
+                                            <label className="cursor-pointer text-primary hover:text-primary-hover transition-colors p-2 rounded-lg hover:bg-white/5">
+                                                <Paperclip className="w-5 h-5" />
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*,video/*"
+                                                    multiple
+                                                    onChange={(e) => setMedia([...media, ...Array.from(e.target.files)])}
+                                                />
+                                            </label>
                                             <button
                                                 type="button"
-                                                onClick={() => setShowPollForm(false)}
-                                                className="dark:text-gray-400 text-gray-600 dark:hover:text-white hover:text-gray-900"
+                                                onClick={() => setShowPollForm(!showPollForm)}
+                                                className={`p-2 rounded-lg transition-colors ${showPollForm ? 'text-secondary bg-secondary/10' : 'text-primary hover:text-primary-hover hover:bg-white/5'}`}
                                             >
-                                                <X className="w-4 h-4" />
+                                                <BarChart2 className="w-5 h-5" />
                                             </button>
                                         </div>
-                                        {pollOptions.map((opt, index) => (
-                                            <input
-                                                key={index}
-                                                type="text"
-                                                placeholder={`Option ${index + 1}`}
-                                                className="input-field w-full"
-                                                value={opt}
-                                                onChange={(e) => {
-                                                    const newOpts = [...pollOptions];
-                                                    newOpts[index] = e.target.value;
-                                                    setPollOptions(newOpts);
-                                                }}
-                                            />
-                                        ))}
-                                        {pollOptions.length < 4 && (
-                                            <button
-                                                type="button"
-                                                onClick={addPollOption}
-                                                className="text-primary hover:text-primary-hover text-sm"
-                                            >
-                                                + Add option
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/10">
-                                    <div className="flex gap-2">
-                                        <label className="cursor-pointer text-primary hover:text-primary-hover transition-colors p-2 rounded-lg hover:bg-white/5">
-                                            <Paperclip className="w-5 h-5" />
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                accept="image/*,video/*"
-                                                multiple
-                                                onChange={(e) => setMedia([...media, ...Array.from(e.target.files)])}
-                                            />
-                                        </label>
                                         <button
-                                            type="button"
-                                            onClick={() => setShowPollForm(!showPollForm)}
-                                            className={`p-2 rounded-lg transition-colors ${showPollForm ? 'text-secondary bg-secondary/10' : 'text-primary hover:text-primary-hover hover:bg-white/5'}`}
+                                            type="submit"
+                                            disabled={uploading || (!newPost && media.length === 0 && !showPollForm)}
+                                            className="btn-primary py-1.5 px-4 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            <BarChart2 className="w-5 h-5" />
+                                            {uploading ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    Posting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="w-4 h-4" />
+                                                    Post
+                                                </>
+                                            )}
                                         </button>
                                     </div>
-                                    <button
-                                        type="submit"
-                                        disabled={uploading || (!newPost && media.length === 0 && !showPollForm)}
-                                        className="btn-primary py-1.5 px-4 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {uploading ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Posting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Send className="w-4 h-4" />
-                                                Post
-                                            </>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    </form>
-                    
-                    {/* Shadcn-style Upload Progress */}
-                    <UploadProgress 
-                        isUploading={uploading}
-                        progress={uploadProgress}
-                        isSuccess={uploadSuccess}
-                        stage={uploadStage}
-                    />
-                </motion.div>
+                        </form>
+
+                        {/* Shadcn-style Upload Progress */}
+                        <UploadProgress
+                            isUploading={uploading}
+                            progress={uploadProgress}
+                            isSuccess={uploadSuccess}
+                            stage={uploadStage}
+                        />
+                    </motion.div>
                 ) : (
                     /* Login Prompt for non-logged-in users */
                     <motion.div
@@ -1633,7 +1632,7 @@ const Home = () => {
                                                         <div className="flex-1 dark:bg-white/5 bg-gray-100 rounded-lg p-3 relative">
                                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                                 <div className="flex items-center gap-2 flex-1">
-                                                                    <span 
+                                                                    <span
                                                                         className="font-semibold dark:text-white text-gray-900 text-sm cursor-pointer hover:text-primary transition-colors"
                                                                         onClick={() => navigate(`/profile/${comment.userId}`)}
                                                                     >
@@ -1657,7 +1656,7 @@ const Home = () => {
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                
+
                                                                 {/* Comment Menu */}
                                                                 {(comment.userId === user?.userId || post.userId === user?.userId) && (
                                                                     <div className="relative">
@@ -1706,7 +1705,7 @@ const Home = () => {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            
+
                                                             {/* Comment Content - Editable */}
                                                             {editingComment === `${post.postId}-${comment.commentId}` ? (
                                                                 <div className="space-y-2">
