@@ -63,6 +63,7 @@ const Home = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const carouselRefs = useRef({});
     const feedContainerRef = useRef(null);
+    const fileInputRef = useRef(null);
     const { user } = useAuth();
     const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
     const { socket, isConnected } = useSocket();
@@ -333,6 +334,11 @@ const Home = () => {
             setMedia([]);
             setShowPollForm(false);
             setPollOptions(["", ""]);
+            
+            // Reset file input so same files can be uploaded again
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
 
             // Show success and hide upload indicator
             setUploadProgress(100);
@@ -1202,11 +1208,17 @@ const Home = () => {
                                             <label className="cursor-pointer text-primary hover:text-primary-hover transition-colors p-2 rounded-lg hover:bg-white/5">
                                                 <Paperclip className="w-5 h-5" />
                                                 <input
+                                                    ref={fileInputRef}
                                                     type="file"
                                                     className="hidden"
                                                     accept="image/*,video/*"
                                                     multiple
-                                                    onChange={(e) => setMedia([...media, ...Array.from(e.target.files)])}
+                                                    onChange={(e) => {
+                                                        const files = Array.from(e.target.files);
+                                                        if (files.length > 0) {
+                                                            setMedia(prev => [...prev, ...files]);
+                                                        }
+                                                    }}
                                                 />
                                             </label>
                                             <button
