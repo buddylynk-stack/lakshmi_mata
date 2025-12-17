@@ -1,0 +1,43 @@
+# Buddylynk Robots.txt
+# https://buddylynk.com
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /search
+Allow: /groups
+Allow: /privacy-policy.html
+Allow: /terms-of-service.html
+Allow: /safety-policy.html
+Allow: /security-policy.html
+
+# Disallow private/authenticated areas
+Disallow: /api/
+Disallow: /chat
+Disallow: /settings
+Disallow: /edit-profile
+Disallow: /saved
+Disallow: /notifications
+
+# Disallow query parameters that create duplicate content
+Disallow: /*?*
+
+# Allow important query parameters for search
+Allow: /search?q=
+
+# Crawl-delay for politeness
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://buddylynk.com/sitemap.xml
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Bing specific
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
