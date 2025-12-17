@@ -52,10 +52,14 @@ const compressImage = async (buffer, mimetype) => {
   }
 };
 
-// Get masked media URL (hides S3 bucket)
+// Get media URL - use direct S3 for speed, or CloudFront if configured
 const getMediaUrl = (key) => {
-  const apiBase = process.env.API_BASE_URL || 'http://localhost:5000';
-  return `${apiBase}/api/media/${key}`;
+  // Use CloudFront CDN if configured (recommended for production)
+  if (process.env.CLOUDFRONT_URL) {
+    return `${process.env.CLOUDFRONT_URL}/${key}`;
+  }
+  // Direct S3 URL (faster than proxy)
+  return `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
 };
 
 // Main upload function - optimized for speed

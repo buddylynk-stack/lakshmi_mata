@@ -6,10 +6,14 @@ const { BUCKET_NAME } = require('../config/s3');
 const { protect } = require('../middleware/authMiddleware');
 const { upload, uploadToS3, uploadMultipleToS3 } = require('../middleware/uploadMiddleware');
 
-// Get API base URL for masked media URLs
+// Get media URL - use direct S3 for speed, or CloudFront if configured
 const getMediaUrl = (key) => {
-  const apiBase = process.env.API_BASE_URL || 'http://localhost:5000';
-  return `${apiBase}/api/media/${key}`;
+  // Use CloudFront CDN if configured (recommended for production)
+  if (process.env.CLOUDFRONT_URL) {
+    return `${process.env.CLOUDFRONT_URL}/${key}`;
+  }
+  // Direct S3 URL (faster than proxy)
+  return `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`;
 };
 
 // Dedicated S3 client for presigned URLs (no checksums)
