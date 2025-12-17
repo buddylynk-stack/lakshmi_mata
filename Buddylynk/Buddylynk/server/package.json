@@ -1,0 +1,51 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup:redis": "bash scripts/install-redis.sh",
+    "setup:ec2": "bash scripts/setup-ec2.sh",
+    "start:prod": "pm2 start index.js --name buddylynk-api -i max",
+    "stop:prod": "pm2 stop buddylynk-api",
+    "restart:prod": "pm2 restart buddylynk-api",
+    "logs": "pm2 logs buddylynk-api",
+    "postinstall": "echo '✅ Dependencies installed. Run npm run setup:redis to install Redis'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.934.0",
+    "@aws-sdk/client-s3": "^3.934.0",
+    "@aws-sdk/lib-dynamodb": "^3.934.0",
+    "@aws-sdk/s3-request-presigner": "^3.937.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "axios": "^1.7.7",
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "form-data": "^4.0.0",
+    "google-auth-library": "^10.5.0",
+    "ioredis": "^5.8.2",
+    "jpeg-js": "^0.4.4",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nsfwjs": "^4.2.1",
+    "pngjs": "^7.0.0",
+    "redis": "^5.10.0",
+    "sharp": "^0.34.5",
+    "socket.io": "^4.8.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "pm2": "^6.0.13"
+  }
+}
